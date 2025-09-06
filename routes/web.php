@@ -1,4 +1,7 @@
 <?php
+
+
+use App\Livewire\WorkOrderForm;
 use App\Livewire\Dashboard;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
@@ -11,7 +14,8 @@ Route::get('/', fn() => redirect()->route('login'));
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
-    Route::get('/register', Register::class)->name('register');   
+    Route::get('/work-order/create', WorkOrderForm::class)->name('work-order.create');
+    Route::get('/register', Register::class)->name('register');
 });
 // Route::get('/login',[AuthController::class,'showLogin'])->name('login');
 
@@ -25,4 +29,3 @@ Route::middleware('guest')->group(function () {
     Route::get('/forgot-password', ForgotPassword::class)->name('password.request');
 });
 // Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
-

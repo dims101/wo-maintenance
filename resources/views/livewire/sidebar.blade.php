@@ -48,6 +48,12 @@
                         <p>Dashboard</p>
                     </a>
                 </li>
+                <li class="nav-item {{ request()->routeIs('work-order.create') ? 'active' : '' }}">
+                    <a href="{{ route('work-order.create') }}">
+                        <i class="fas fa-plus"></i>
+                        <p>Create SPK</p>
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

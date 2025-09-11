@@ -1,6 +1,6 @@
 <?php
 
-
+use App\Livewire\ApprovalSpvUser;
 use App\Livewire\WorkOrderForm;
 use App\Livewire\Dashboard;
 use App\Livewire\Auth\Login;
@@ -14,6 +14,7 @@ Route::get('/', fn() => redirect()->route('login'));
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    Route::get('/work-order/spv-approval', ApprovalSpvUser::class)->name('work-order.spv-approval');
     Route::get('/work-order/create', WorkOrderForm::class)->name('work-order.create');
     Route::get('/register', Register::class)->name('register');
 });

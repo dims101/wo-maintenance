@@ -49,9 +49,15 @@
                     </a>
                 </li>
                 <li class="nav-item {{ request()->routeIs('work-order.create') ? 'active' : '' }}">
-                    <a href="{{ route('work-order.create') }}">
+                    <a href="{{ route('work-order.create') }}" wire:navigate>
                         <i class="fas fa-plus"></i>
                         <p>Create SPK</p>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('work-order.spv-approval') ? 'active' : '' }}">
+                    <a href="{{ route('work-order.spv-approval') }}" wire:navigate>
+                        <i class="fas fa-plus"></i>
+                        <p>SPK For Approval User</p>
                     </a>
                 </li>
             </ul>

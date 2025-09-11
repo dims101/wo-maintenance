@@ -20,7 +20,7 @@ return new class extends Migration {
             $table->foreignId('req_dept_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignId('req_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('urgent_level', 20)->nullable();
-            $table->string('status', 30)->nullable();
+            $table->string('status', 100)->nullable();
             $table->boolean('is_spv_rejected')->nullable();
             $table->string('spv_reject_reason', 255)->nullable();
 

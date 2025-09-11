@@ -17,6 +17,7 @@ class WorkOrder extends Model
         'work_desc',
         'malfunction_start',
         'equipment_id',
+        'planner_group_id',
         'is_breakdown',
         'notes',
         'req_dept_id',
@@ -25,6 +26,7 @@ class WorkOrder extends Model
         'status',
         'is_spv_rejected',
         'spv_reject_reason',
+        'spv_approve_reason',
     ];
 
     protected function casts(): array
@@ -53,5 +55,10 @@ class WorkOrder extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'req_user_id');
+    }
+
+    public function plannerGroup()
+    {
+        return $this->belongsTo(PlannerGroup::class, 'planner_group_id');
     }
 }

@@ -11,8 +11,11 @@ use App\Models\Equipment;
 use App\Models\WorkOrder;
 use App\Models\Department;
 use App\Models\PlannerGroup;
+use App\Mail\SpvUserApproval;
 use Livewire\Attributes\Title;
 use App\Models\FunctionalLocation;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class WorkOrderForm extends Component
 {
@@ -33,6 +36,7 @@ class WorkOrderForm extends Component
     // other fields
     public $planner_group_id = null;
     public $notification_number = null;
+    public $work_desc = null;
     public $notification_date = null;
     public $malfunction_start = null;
     public $priority = 'low'; // default value
@@ -78,8 +82,9 @@ class WorkOrderForm extends Component
         'equipment_id.exists' => 'Equipment yang dipilih tidak valid',
         'planner_group_id.required' => 'Planner Group wajib dipilih',
         'planner_group_id.exists' => 'Planner Group yang dipilih tidak valid',
-        'notification_number.required' => 'Notification Description wajib diisi',
-        'notification_number.max' => 'Notification Description maksimal 255 karakter',
+        'notification_number.required' => 'Notification Number wajib diisi',
+        'notification_number.max' => 'Notification Number maksimal 255 karakter',
+        'work_desc.required' => 'Notification Description wajib diisi',
         'notification_date.required' => 'Notification Date wajib diisi',
         'notification_date.after_or_equal' => 'Notification Date tidak boleh kurang dari hari ini',
         'malfunction_start.required' => 'Malfunction Start wajib diisi',
@@ -101,12 +106,17 @@ class WorkOrderForm extends Component
     {
         $this->planner_groups = PlannerGroup::orderBy('name')->get();
         $this->departments = Department::orderBy('name')->get();
+        
+        // Set default dates
+        $this->notification_date = now()->format('Y-m-d\TH:i');
+        $this->malfunction_start = now()->format('Y-m-d\TH:i');
     }
 
+    // Updated methods for search
     public function updatedPlantSearch()
     {
-        $this->showPlantDropdown = !empty($this->plant_search);
-        if (empty($this->plant_search)) {
+        $this->showPlantDropdown = !empty(trim($this->plant_search));
+        if (empty(trim($this->plant_search))) {
             $this->plant_id = null;
             $this->resetDependentSelects();
         }
@@ -114,8 +124,8 @@ class WorkOrderForm extends Component
 
     public function updatedResourceSearch()
     {
-        $this->showResourceDropdown = !empty($this->resource_search) && $this->plant_id;
-        if (empty($this->resource_search)) {
+        $this->showResourceDropdown = !empty(trim($this->resource_search)) && $this->plant_id;
+        if (empty(trim($this->resource_search))) {
             $this->resource_id = null;
             $this->resetFuncAndEquipment();
         }
@@ -123,8 +133,8 @@ class WorkOrderForm extends Component
 
     public function updatedFuncSearch()
     {
-        $this->showFuncDropdown = !empty($this->func_search) && $this->resource_id;
-        if (empty($this->func_search)) {
+        $this->showFuncDropdown = !empty(trim($this->func_search)) && $this->resource_id;
+        if (empty(trim($this->func_search))) {
             $this->functional_location_id = null;
             $this->resetEquipment();
         }
@@ -132,8 +142,8 @@ class WorkOrderForm extends Component
 
     public function updatedEquipmentSearch()
     {
-        $this->showEquipmentDropdown = !empty($this->equipment_search) && $this->functional_location_id;
-        if (empty($this->equipment_search)) {
+        $this->showEquipmentDropdown = !empty(trim($this->equipment_search)) && $this->functional_location_id;
+        if (empty(trim($this->equipment_search))) {
             $this->equipment_id = null;
         }
     }
@@ -159,6 +169,7 @@ class WorkOrderForm extends Component
         $this->req_user_id = null;
     }
 
+    // Fixed reset methods
     private function resetDependentSelects()
     {
         $this->resource_id = null;
@@ -182,9 +193,10 @@ class WorkOrderForm extends Component
         $this->showEquipmentDropdown = false;
     }
 
+    // Fixed computed properties
     public function getPlantsProperty()
     {
-        if (empty($this->plant_search)) {
+        if (empty(trim($this->plant_search))) {
             return collect();
         }
         
@@ -196,7 +208,7 @@ class WorkOrderForm extends Component
 
     public function getResourcesProperty()
     {
-        if (!$this->plant_id || empty($this->resource_search)) {
+        if (!$this->plant_id || empty(trim($this->resource_search))) {
             return collect();
         }
         
@@ -209,7 +221,7 @@ class WorkOrderForm extends Component
 
     public function getFunctionalLocationsProperty()
     {
-        if (!$this->resource_id || empty($this->func_search)) {
+        if (!$this->resource_id || empty(trim($this->func_search))) {
             return collect();
         }
         
@@ -222,7 +234,7 @@ class WorkOrderForm extends Component
 
     public function getEquipmentsProperty()
     {
-        if (!$this->functional_location_id || empty($this->equipment_search)) {
+        if (!$this->functional_location_id || empty(trim($this->equipment_search))) {
             return collect();
         }
         
@@ -241,22 +253,32 @@ class WorkOrderForm extends Component
         return User::where('dept_id', $this->req_dept_id)->orderBy('name')->get();
     }
 
+    // Fixed SPV Email computation
     public function getSpvEmailProperty()
     {
-        if (!$this->planner_group_id) {
+        
+        // if (!$this->planner_group_id) {
+        //     return null;
+        // }
+        
+        // // Find user with matching planner_group_id and is SPV in their department
+        // $user = User::where('planner_group_id', $this->planner_group_id)
+        //            ->whereHas('department', function($query) {
+        //                $query->whereColumn('spv_id', 'users.id');
+        //            })
+        //            ->first();
+        
+        // return $user ? $user->email : null;
+        // dd(Auth::user()->dept_id);
+        if(!$this->req_dept_id) {
             return null;
         }
-        
-        // Mencari user dengan planner_group_id yang sesuai dan merupakan SPV di departmentnya
-        $user = User::where('planner_group_id', $this->planner_group_id)
-                   ->whereHas('department', function($query) {
-                       $query->whereColumn('spv_id', 'users.id');
-                   })
-                   ->first();
-        
+        // $user = Department::find(Auth::user()->dept_id)->spv->email;
+        $user = Department::find($this->req_dept_id)->spv;
         return $user ? $user->email : null;
     }
 
+    // Fixed select methods
     public function selectPlant($id)
     {
         $plant = Plant::find($id);
@@ -264,6 +286,7 @@ class WorkOrderForm extends Component
             $this->plant_id = $plant->id;
             $this->plant_search = $plant->name;
             $this->showPlantDropdown = false;
+            $this->resetDependentSelects();
         }
     }
 
@@ -274,6 +297,7 @@ class WorkOrderForm extends Component
             $this->resource_id = $resource->id;
             $this->resource_search = $resource->name;
             $this->showResourceDropdown = false;
+            $this->resetFuncAndEquipment();
         }
     }
 
@@ -284,6 +308,7 @@ class WorkOrderForm extends Component
             $this->functional_location_id = $functionalLocation->id;
             $this->func_search = $functionalLocation->name;
             $this->showFuncDropdown = false;
+            $this->resetEquipment();
         }
     }
 
@@ -312,20 +337,29 @@ class WorkOrderForm extends Component
         try {
             $workOrder = WorkOrder::create([
                 'notification_number' => $this->notification_number,
+                'work_desc' => $this->work_desc,
                 'notification_date' => $this->notification_date ? Carbon::parse($this->notification_date) : null,
                 'priority' => $this->priority,
-                'work_desc' => null,
                 'malfunction_start' => $this->malfunction_start ? Carbon::parse($this->malfunction_start) : null,
                 'equipment_id' => $this->equipment_id,
+                'planner_group_id' => $this->planner_group_id,
                 'is_breakdown' => (bool) $this->breakdown,
                 'notes' => $this->notes,
                 'req_dept_id' => $this->req_dept_id,
                 'req_user_id' => $this->req_user_id,
                 'urgent_level' => $this->urgent_level,
-                'status' => 'open',
+                'status' => 'Waiting for SPV Approval',
                 'is_spv_rejected' => false,
                 'spv_reject_reason' => null,
             ]);
+
+            //Mailer
+
+            $department = Department::where('id', $this->req_dept_id)->first();
+            $email = $department->spv->email;
+            $name = $department->spv->name;
+            // Mail::to($email)->send(new SpvUserApproval($name, route('work-order.spv-approval')));
+            
 
             $this->dispatch('show-success-alert', [
                 'title' => 'Berhasil!',
@@ -336,7 +370,7 @@ class WorkOrderForm extends Component
         } catch (\Exception $e) {
             $this->dispatch('show-error-alert', [
                 'title' => 'Error!',
-                'message' => 'Terjadi kesalahan saat menyimpan data.'
+                'message' => 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage()
             ]);
         }
     }

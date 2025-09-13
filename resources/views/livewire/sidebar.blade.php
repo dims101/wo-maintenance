@@ -60,6 +60,12 @@
                         <p>SPK For Approval User</p>
                     </a>
                 </li>
+                <li class="nav-item {{ request()->routeIs('work-order.assigned') ? 'active' : '' }}">
+                    <a href="{{ route('work-order.assigned') }}" wire:navigate>
+                        <i class="fas fa-file"></i>
+                        <p>List SPK Assigned</p>
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

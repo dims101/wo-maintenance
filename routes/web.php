@@ -1,10 +1,11 @@
 <?php
 
-use App\Livewire\ApprovalSpvUser;
-use App\Livewire\WorkOrderForm;
 use App\Livewire\Dashboard;
 use App\Livewire\Auth\Login;
+use App\Livewire\AssignedSpk;
 use App\Livewire\Auth\Register;
+use App\Livewire\WorkOrderForm;
+use App\Livewire\ApprovalSpvUser;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Livewire\Auth\ForgotPassword;
@@ -16,6 +17,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/work-order/spv-approval', ApprovalSpvUser::class)->name('work-order.spv-approval');
     Route::get('/work-order/create', WorkOrderForm::class)->name('work-order.create');
+    Route::get('/work-order/assigned', AssignedSpk::class)->name('work-order.assigned');
     Route::get('/register', Register::class)->name('register');
 });
 // Route::get('/login',[AuthController::class,'showLogin'])->name('login');

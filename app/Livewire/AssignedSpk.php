@@ -16,11 +16,11 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use App\Mail\SendMaintenanceApproval;
 
-class ApprovalSpvUser extends Component
+class AssignedSpk extends Component
 {
     use WithPagination;
 
-    #[Title('SPK for Approval')]
+    #[Title('Assigned SPK')]
 
     public $perPage = 10;
     public $search = '';
@@ -84,7 +84,7 @@ class ApprovalSpvUser extends Component
 
     public function addTeamMember()
     {
-        if (count($this->teamMembers) < 10) {
+        if (count($this->teamMembers) < 99) {
             $this->teamMembers[] = '';
         }
     }
@@ -450,7 +450,7 @@ class ApprovalSpvUser extends Component
         $workOrders = $query->orderBy('created_at', 'desc')
             ->paginate($this->perPage);
 
-        return view('livewire.approval-spv-user', [
+        return view('livewire.assigned-spk', [
             'workOrders' => $workOrders
         ]);
     }

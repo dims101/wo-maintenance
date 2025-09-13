@@ -19,7 +19,7 @@ return new class extends Migration
         // departments
         Schema::create('departments', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 20)->nullable();
+            $table->string('name', 100)->nullable();
             $table->unsignedBigInteger('spv_id')->nullable();
             $table->unsignedBigInteger('pic_id')->nullable();
             $table->unsignedBigInteger('manager_id')->nullable();

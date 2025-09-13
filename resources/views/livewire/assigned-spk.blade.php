@@ -4,8 +4,6 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <h2>Ticket Maintenance - Open</h2>
-                    <hr>
                     <!-- Flash Messages -->
                     @if (session()->has('message'))
                         <div class="alert alert-success alert-dismissible fade show d-flex align-items-center"
@@ -61,11 +59,7 @@
                                 <tr>
                                     <th>Action</th>
                                     <th>Status</th>
-                                    <th>Urgent Level</th>
-                                    <th>Notification Date</th>
-                                    <th>Department Requester</th>
-                                    <th>Requester Name</th>
-                                    <th>Malfunction Start</th>
+                                    <th>Notification Number</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -85,38 +79,13 @@
                                                 <span> {{ $workOrder->status }} </span>
                                             </td>
                                             <td>
-                                                @switch($workOrder->urgent_level)
-                                                    @case('High')
-                                                    @case('Critical')
-                                                        <span class="badge badge-danger">{{ $workOrder->urgent_level }}</span>
-                                                    @break
-
-                                                    @case('Medium')
-                                                        <span class="badge badge-warning">{{ $workOrder->urgent_level }}</span>
-                                                    @break
-
-                                                    @case('Low')
-                                                        <span class="badge badge-success">{{ $workOrder->urgent_level }}</span>
-                                                    @break
-
-                                                    @default
-                                                        <span
-                                                            class="badge badge-secondary">{{ $workOrder->urgent_level ?? 'Not Set' }}</span>
-                                                @endswitch
-                                            </td>
-                                            <td>
-                                                {{ $workOrder->notification_date ? $workOrder->notification_date->format('d M Y') : '-' }}
-                                            </td>
-                                            <td>{{ $workOrder->department->name ?? '-' }}</td>
-                                            <td>{{ $workOrder->user->name ?? '-' }}</td>
-                                            <td>
-                                                {{ $workOrder->malfunction_start ? $workOrder->malfunction_start->format('d M Y H:i') : '-' }}
+                                                {{ $workOrder->notification_number }}
                                             </td>
                                         </tr>
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="7" class="text-center">
+                                        <td colspan="3" class="text-center">
                                             <div class="py-4">
                                                 <i class="fas fa-search fa-2x text-muted mb-3"></i>
                                                 <p class="text-muted">No work orders found</p>
@@ -274,202 +243,184 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
-                        @if ($selectedWorkOrder->status == 'Waiting for SPV Approval' && !$selectedWorkOrder->is_spv_rejected)
-                            <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
-                                data-target="#popupModal"
-                                wire:click='openPopupModal("reject","spvUser")'>Reject</button>
-                            <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
-                                data-target="#popupModal"
-                                wire:click='openPopupModal("approve","spvUser")'>Approve</button>
-                        @elseif ($selectedWorkOrder->status == 'Waiting for Maintenance Approval' && !$selectedWorkOrder->is_spv_rejected)
-                            <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                                data-target="#popupModal"
-                                wire:click='openPopupModal("receive","spvMaintenance")'>Receive</button>
-                            <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
-                                data-target="#popupModal"
-                                wire:click='openPopupModal("reject","spvMaintenance")'>Reject</button>
-                            <button class="btn btn-success btn-pill" data-toggle="modal"
-                                data-target="#approvalMaintenance">Approve</button>
-                        @elseif ($selectedWorkOrder->status == 'Received by Maintenance' && !$selectedWorkOrder->is_spv_rejected)
-                            <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
-                                data-target="#popupModal"
-                                wire:click='openPopupModal("reject","spvMaintenance")'>Reject</button>
-                                <button class="btn btn-success btn-pill" data-toggle="modal"
-                                data-target="#approvalMaintenance">Approve</button>
-                        @endif
+                        <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
+                            data-target="#sparepartModal" wire:click=''>Sparepart
+                            reservation</button>
+                        <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
+                            data-target="#progressModal" wire:click=''>Update
+                            progress</button>
+                        <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
+                            data-target="#closeModal" wire:click=''>Request to
+                            close</button>
                     </div>
                 </div>
             </div>
         </div>
     @endif
 
-    {{-- Approval Maintenance Modal --}}
-    <div wire:ignore.self class="modal fade" data-backdrop="static" id="approvalMaintenance" tabindex="-1"
-        role="dialog">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content shadow-lg">
-                <div class="modal-header bg-success">
-                    <h5 class="modal-title text-white">Assign Team Member</h5>
-                    <button type="button" class="close text-white" wire:click="resetMaintenanceApprovalForm"
-                        data-dismiss="modal">
-                        <span>&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-12">
-                            <!-- PIC -->
-                            <div class="form-group">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <label class="strong">PIC <span class="text-danger">*</span></label>
-                                </div>
-                                <select class="custom-select" wire:model.live="selectedPic">
-                                    <option value="">Select PIC</option>
-                                    @foreach ($users as $user)
-                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Team Members -->
-                            <div class="form-group">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <label class="strong">Team Members <span class="text-danger">*</span></label>
-                                </div>
-
-                                @foreach ($teamMembers as $index => $member)
-                                    <div class="input-group mb-2">
-                                        <select class="custom-select" wire:model="teamMembers.{{ $index }}">
-                                            <option value="">Select Team Member {{ $index + 1 }}</option>
-                                            @foreach ($users as $user)
-                                                @if ($user->id != $selectedPic)
+    {{-- Sparepart Modal --}}
+    @if ($selectedWorkOrder)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="sparepartModal" tabindex="-1"
+            role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-info">
+                        <h5 class="modal-title text-white">Sparepart Reservation</h5>
+                        <button type="button" class="close text-white" wire:click="resetSparepartModal"
+                            data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <!-- Team Members -->
+                                <div class="form-group">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="strong">Request item <span class="text-danger">*</span></label>
+                                    </div>
+                                    @foreach ($teamMembers as $index => $member)
+                                        <div class="input-group mb-2">
+                                            <select class="custom-select"
+                                                wire:model="teamMembers.{{ $index }}">
+                                                <option value="">Request sparepart {{ $index + 1 }}</option>
+                                                @foreach ($users as $user)
                                                     <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                                @endif
-                                            @endforeach
-                                        </select>
-                                        <div class="input-group-append">
-                                            @if ($index == 0)
-                                                @if (count($teamMembers) < 10)
-                                                    <button type="button" class="btn btn-success btn-sm"
-                                                        wire:click="addTeamMember" title="Add another team member">
-                                                        <i class="fas fa-plus"></i>
+                                                @endforeach
+                                            </select>
+                                            <div class="input-group-append">
+                                                @if ($index == 0)
+                                                    @if (count($teamMembers) < 99)
+                                                        <button type="button" class="btn btn-success btn-sm"
+                                                            wire:click="addTeamMember" title="Add another sparepart">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    @endif
+                                                @else
+                                                    <button type="button" class="btn btn-danger btn-sm"
+                                                        wire:click="removeTeamMember({{ $index }})"
+                                                        title="Remove this sparepart">
+                                                        <i class="fas fa-minus"></i>
                                                     </button>
                                                 @endif
-                                            @else
-                                                <button type="button" class="btn btn-danger btn-sm"
-                                                    wire:click="removeTeamMember({{ $index }})"
-                                                    title="Remove this team member">
-                                                    <i class="fas fa-minus"></i>
-                                                </button>
-                                            @endif
+                                            </div>
                                         </div>
-                                    </div>
-                                @endforeach
-                                <small class="text-muted">Jika pic atau team member tidak ditemukan <a href="/team/create" target="_blank" class="badge btn-outline-primary text-decoration-none">tambahkan team</a></small>
-                            </div>
-
-                            <!-- Order Type -->
-                            <div class="form-group">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <label class="strong">Order Type <span class="text-danger">*</span></label>
-                                </div>
-                                <select class="custom-select" wire:model.live="selectedOrderType">
-                                    <option value="">Select Order Type</option>
-                                    @foreach ($orderTypes as $orderType)
-                                        <option value="{{ $orderType->id }}">
-                                            {{ $orderType->type ?? $orderType->name }}</option>
                                     @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Maintenance Activity Type -->
-                            <div class="form-group">
-                                <label class="strong">Maintenance Activity Type <span
-                                        class="text-danger">*</span></label>
-                                <select class="custom-select" wire:model="selectedMat"
-                                    {{ !$selectedOrderType ? 'disabled' : '' }}>
-                                    <option value="">Select MAT</option>
-                                    @foreach ($mats as $mat)
-                                        <option value="{{ $mat->id }}">{{ $mat->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <!-- Start Date Time -->
-                                    <div class="form-group">
-                                        <label class="strong">Start Date Time <span
-                                                class="text-danger">*</span></label>
-                                        <input type="datetime-local" class="form-control" wire:model="startDateTime">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <!-- Finish Date Time -->
-                                    <div class="form-group">
-                                        <label class="strong">Finish Date Time <span
-                                                class="text-danger">*</span></label>
-                                        <input type="datetime-local" class="form-control"
-                                            wire:model="finishDateTime">
-                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-pill"
-                        wire:click="resetMaintenanceApprovalForm" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success btn-pill"
-                        wire:click="confirmMaintenanceApprove">Approve</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Popup Modal -->
-    <div wire:ignore.self class="modal fade" data-backdrop="static" id="popupModal" tabindex="-1" role="dialog">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content shadow-lg">
-                <div class="modal-header {{ $popupModalHeaderClass }}">
-                    <h5 class="modal-title text-white">{{ $popupModalTitle }}</h5>
-                    <button type="button" class="close text-white" wire:click="resetPopup" data-dismiss="modal">
-                        <span>&times;</span>
-                    </button>
-                </div>
-                <form>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="reason">Reason:</label>
-                            <textarea wire:model='reason' name="reason" class="form-control" rows="3" required
-                                placeholder="Please provide a reason..."></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" wire:click="resetPopup"
+                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetSparepartModal"
                             data-dismiss="modal">Cancel</button>
-                        @if ($popupModalActor == 'spvUser')
-                            @if ($popupModalAction == 'reject')
-                                <button type="button" wire:click="confirmReject"
-                                    class="btn btn-danger">Reject</button>
-                            @elseif($popupModalAction == 'approve')
-                                <button type="button" wire:click="confirmApprove"
-                                    class="btn btn-success">Approve</button>
-                            @endif
-                        @elseif ($popupModalActor == 'spvMaintenance')
-                            @if ($popupModalAction == 'reject')
-                                <button type="button" wire:click="confirmMaintenanceReject"
-                                    class="btn btn-danger">Reject</button>
-                            @elseif($popupModalAction == 'receive')
-                                <button type="button" wire:click="confirmMaintenanceReceive"
-                                    class="btn btn-info">Receive</button>
-                            @endif
-                        @endif
+                        <button type="button" class="btn btn-success btn-pill"
+                            wire:click="submitSparepart">Approve</button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
-    </div>
+    @endif
+
+    @if ($selectedWorkOrder)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="progressModal" tabindex="-1"
+            role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title text-white">Work Progress Detail</h5>
+                        <button type="button" class="close text-white" wire:click="resetProgressModal"
+                            data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label class="strong">Progress</label>
+                                    <div class="progress">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                            role="progressbar" aria-valuenow="75" aria-valuemin="0"
+                                            aria-valuemax="100" style="width: 0%%">0%
+                                        </div>
+                                        <hr>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="strong">Add a new task <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-success">add</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="strong">Task List</label>
+                                    <br>
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="customCheck1">
+                                        <label class="custom-control-label" for="customCheck1">Check this custom
+                                            checkbox</label>
+                                    </div>
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="customCheck1">
+                                        <label class="custom-control-label" for="customCheck1">Check this custom
+                                            checkbox</label>
+                                    </div>
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="customCheck1">
+                                        <label class="custom-control-label" for="customCheck1">Check this custom
+                                            checkbox</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetProgressModal"
+                            data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success btn-pill"
+                            wire:click="submitProgress">Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Close Modal -->
+    @if ($selectedWorkOrder)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="closeModal" tabindex="-1"
+            role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-success">
+                        <h5 class="modal-title text-white">Request to close</h5>
+                        <button type="button" class="close text-white" wire:click="resetPopup"
+                            data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <form>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="reason">Reason:</label>
+                                <textarea wire:model='reason' name="reason" class="form-control" rows="3" required
+                                    placeholder="Please provide a reason..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary btn-pill" wire:click="resetPopup"
+                                data-dismiss="modal">Cancel</button>
+                            <button type="button" wire:click="confirmChange" class="btn btn-warning btn-pill">Planner Change</button>
+                            <button type="button" wire:click="confirmClose"
+                                class="btn btn-success btn-pill">Close</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <!-- Loading Indicator -->
     <div wire:loading class="position-fixed"

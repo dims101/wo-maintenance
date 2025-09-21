@@ -2,52 +2,69 @@
 
 namespace App\Livewire;
 
-use Carbon\Carbon;
-use App\Models\User;
-use App\Models\Plant;
-use Livewire\Component;
-use App\Models\Resource;
-use App\Models\Equipment;
-use App\Models\WorkOrder;
-use App\Models\Department;
-use App\Models\PlannerGroup;
 use App\Mail\SpvUserApproval;
-use Livewire\Attributes\Title;
+use App\Models\Department;
+use App\Models\Equipment;
 use App\Models\FunctionalLocation;
+use App\Models\PlannerGroup;
+use App\Models\Plant;
+use App\Models\Resource;
+use App\Models\User;
+use App\Models\WorkOrder;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 
 class WorkOrderForm extends Component
 {
     #[Title('Form Maintenance Notification')]
-    
+
     // search text
     public $plant_search = '';
+
     public $resource_search = '';
+
     public $func_search = '';
+
     public $equipment_search = '';
 
     // selected ids
     public $plant_id = null;
+
     public $resource_id = null;
+
     public $functional_location_id = null;
+
     public $equipment_id = null;
 
     // other fields
     public $planner_group_id = null;
+
     public $notification_number = null;
+
     public $work_desc = null;
+
     public $notification_date = null;
+
     public $malfunction_start = null;
+
     public $priority = 'low'; // default value
+
     public $notes = null;
+
     public $breakdown = false;
+
     public $req_dept_id = null;
+
     public $req_user_id = null;
+
     public $urgent_level = 'Produksi & Delivery'; // default value
 
     // options loaded once or computed
     public $planner_groups = [];
+
     public $departments = [];
 
     // limits
@@ -55,13 +72,16 @@ class WorkOrderForm extends Component
 
     // show dropdown flags
     public $showPlantDropdown = false;
+
     public $showResourceDropdown = false;
+
     public $showFuncDropdown = false;
+
     public $showEquipmentDropdown = false;
 
     protected $rules = [
         'equipment_id' => 'required|integer',
-        'planner_group_id' => 'required|integer', 
+        'planner_group_id' => 'required|integer',
         'notification_date' => 'required|date',
         'malfunction_start' => 'required|date',
         'priority' => 'required|string',
@@ -106,7 +126,7 @@ class WorkOrderForm extends Component
     {
         $this->planner_groups = PlannerGroup::orderBy('name')->get();
         $this->departments = Department::orderBy('name')->get();
-        
+
         // Set default dates
         $this->notification_date = now()->format('Y-m-d\TH:i');
         $this->malfunction_start = now()->format('Y-m-d\TH:i');
@@ -115,7 +135,7 @@ class WorkOrderForm extends Component
     // Updated methods for search
     public function updatedPlantSearch()
     {
-        $this->showPlantDropdown = !empty(trim($this->plant_search));
+        $this->showPlantDropdown = ! empty(trim($this->plant_search));
         if (empty(trim($this->plant_search))) {
             $this->plant_id = null;
             $this->resetDependentSelects();
@@ -124,7 +144,7 @@ class WorkOrderForm extends Component
 
     public function updatedResourceSearch()
     {
-        $this->showResourceDropdown = !empty(trim($this->resource_search)) && $this->plant_id;
+        $this->showResourceDropdown = ! empty(trim($this->resource_search)) && $this->plant_id;
         if (empty(trim($this->resource_search))) {
             $this->resource_id = null;
             $this->resetFuncAndEquipment();
@@ -133,7 +153,7 @@ class WorkOrderForm extends Component
 
     public function updatedFuncSearch()
     {
-        $this->showFuncDropdown = !empty(trim($this->func_search)) && $this->resource_id;
+        $this->showFuncDropdown = ! empty(trim($this->func_search)) && $this->resource_id;
         if (empty(trim($this->func_search))) {
             $this->functional_location_id = null;
             $this->resetEquipment();
@@ -142,7 +162,7 @@ class WorkOrderForm extends Component
 
     public function updatedEquipmentSearch()
     {
-        $this->showEquipmentDropdown = !empty(trim($this->equipment_search)) && $this->functional_location_id;
+        $this->showEquipmentDropdown = ! empty(trim($this->equipment_search)) && $this->functional_location_id;
         if (empty(trim($this->equipment_search))) {
             $this->equipment_id = null;
         }
@@ -199,82 +219,84 @@ class WorkOrderForm extends Component
         if (empty(trim($this->plant_search))) {
             return collect();
         }
-        
+
         return Plant::where('name', 'ilike', "%{$this->plant_search}%")
-                    ->orderBy('name')
-                    ->limit($this->perPage)
-                    ->get();
+            ->orderBy('name')
+            ->limit($this->perPage)
+            ->get();
     }
 
     public function getResourcesProperty()
     {
-        if (!$this->plant_id || empty(trim($this->resource_search))) {
+        if (! $this->plant_id || empty(trim($this->resource_search))) {
             return collect();
         }
-        
+
         return Resource::where('plant_id', $this->plant_id)
-                      ->where('name', 'ilike', "%{$this->resource_search}%")
-                      ->orderBy('name')
-                      ->limit($this->perPage)
-                      ->get();
+            ->where('name', 'ilike', "%{$this->resource_search}%")
+            ->orderBy('name')
+            ->limit($this->perPage)
+            ->get();
     }
 
     public function getFunctionalLocationsProperty()
     {
-        if (!$this->resource_id || empty(trim($this->func_search))) {
+        if (! $this->resource_id || empty(trim($this->func_search))) {
             return collect();
         }
-        
+
         return FunctionalLocation::where('resources_id', $this->resource_id)
-                                ->where('name', 'ilike', "%{$this->func_search}%")
-                                ->orderBy('name')
-                                ->limit($this->perPage)
-                                ->get();
+            ->where('name', 'ilike', "%{$this->func_search}%")
+            ->orderBy('name')
+            ->limit($this->perPage)
+            ->get();
     }
 
     public function getEquipmentsProperty()
     {
-        if (!$this->functional_location_id || empty(trim($this->equipment_search))) {
+        if (! $this->functional_location_id || empty(trim($this->equipment_search))) {
             return collect();
         }
-        
+
         return Equipment::where('func_loc_id', $this->functional_location_id)
-                       ->where('name', 'ilike', "%{$this->equipment_search}%")
-                       ->orderBy('name')
-                       ->limit($this->perPage)
-                       ->get();
+            ->where('name', 'ilike', "%{$this->equipment_search}%")
+            ->orderBy('name')
+            ->limit($this->perPage)
+            ->get();
     }
 
     public function getRequestersProperty()
     {
-        if (!$this->req_dept_id) {
+        if (! $this->req_dept_id) {
             return collect();
         }
+
         return User::where('dept_id', $this->req_dept_id)->orderBy('name')->get();
     }
 
     // Fixed SPV Email computation
     public function getSpvEmailProperty()
     {
-        
+
         // if (!$this->planner_group_id) {
         //     return null;
         // }
-        
+
         // // Find user with matching planner_group_id and is SPV in their department
         // $user = User::where('planner_group_id', $this->planner_group_id)
         //            ->whereHas('department', function($query) {
         //                $query->whereColumn('spv_id', 'users.id');
         //            })
         //            ->first();
-        
+
         // return $user ? $user->email : null;
         // dd(Auth::user()->dept_id);
-        if(!$this->req_dept_id) {
+        if (! $this->req_dept_id) {
             return null;
         }
         // $user = Department::find(Auth::user()->dept_id)->spv->email;
         $user = Department::find($this->req_dept_id)->spv;
+
         return $user ? $user->email : null;
     }
 
@@ -330,6 +352,12 @@ class WorkOrderForm extends Component
         $this->showEquipmentDropdown = false;
     }
 
+    public function confirmSubmit()
+    {
+        $this->validate();
+        $this->dispatch('confirmSubmit');
+    }
+
     public function submit()
     {
         $this->validate();
@@ -353,24 +381,24 @@ class WorkOrderForm extends Component
                 'spv_reject_reason' => null,
             ]);
 
-            //Mailer
+            // Mailer
 
             $department = Department::where('id', $this->req_dept_id)->first();
             $email = $department->spv->email;
             $name = $department->spv->name;
-            // Mail::to($email)->send(new SpvUserApproval($name, route('work-order.spv-approval')));
-            
+            // update to general
+            Mail::to($email)->send(new SpvUserApproval($name, route('work-order.spv-approval')));
 
             $this->dispatch('show-success-alert', [
-                'title' => 'Berhasil!',
-                'message' => 'Work order berhasil dibuat.',
-                'redirect' => route('dashboard')
+                'title' => 'Submitted!',
+                'message' => 'Form successfuly submitted',
+                'redirect' => route('work-order'),
             ]);
 
         } catch (\Exception $e) {
             $this->dispatch('show-error-alert', [
                 'title' => 'Error!',
-                'message' => 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage()
+                'message' => 'Error saving data: '.$e->getMessage(),
             ]);
         }
     }

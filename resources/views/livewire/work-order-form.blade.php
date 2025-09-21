@@ -3,7 +3,7 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <form wire:submit.prevent="submit">
+                    <form wire:submit.prevent="confirmSubmit">
                         <div class="row g-3">
                             {{-- Row 1 --}}
                             <div class="col-md-4 mb-3">
@@ -16,7 +16,7 @@
                             </div>
 
                             <div class="col-md-4 mb-3">
-                                <label class="form-label mb-2">Notification Description</label>
+                                <label class="form-label mb-2">Notification Description </label>
                                 <input type="text" wire:model.blur="work_desc" class="form-control"
                                     placeholder="Enter notification description">
                                 @error('work_desc')
@@ -173,7 +173,7 @@
                             {{-- Row 3 --}}
                             <div class="col-md-4 mb-3">
                                 <label class="form-label mb-2">* Planner Group</label>
-                                <select wire:model.live="planner_group_id"
+                                <select wire:model.blur="planner_group_id"
                                     class="custom-select @error('planner_group_id') is-invalid @enderror">
                                     <option value="">-- Pilih Planner Group --</option>
                                     @foreach ($planner_groups as $plannerGroup)
@@ -257,10 +257,9 @@
                                 <label class="form-label mb-2">SPV Email</label>
                                 <input type="email" readonly value="{{ $spv_email ?? '' }}"
                                     class="form-control bg-light"
-                                    placeholder="Email will appear after selecting planner group">
-                                @if ($planner_group_id && !$spv_email)
-                                    <div class="text-warning small mt-1">Tidak ada SPV ditemukan untuk planner group
-                                        ini</div>
+                                    placeholder="Email will appear after selecting department">
+                                @if ($req_dept_id && !$spv_email)
+                                    <div class="text-warning small mt-1">SPV tidak ditemukan</div>
                                 @endif
                             </div>
 
@@ -321,9 +320,9 @@
                                 <i class="fas fa-times me-1"></i> Cancel
                             </a>
                             <button type="submit" class="btn btn-primary btn-pill" wire:loading.attr="disabled">
-                                <span wire:loading wire:target="submit"
+                                <span wire:loading wire:target="confirmSubmit"
                                     class="spinner-border spinner-border-sm me-1"></span>
-                                <i wire:loading.remove wire:target="submit" class="fas fa-save me-1"></i>
+                                <i wire:loading.remove wire:target="confirmSubmit" class="fas fa-save me-1"></i>
                                 Submit
                             </button>
                         </div>
@@ -337,10 +336,37 @@
     <div wire:click="hideDropdowns" class="position-fixed w-100 h-100 top-0 start-0"
         style="z-index: 1040; display: {{ $showPlantDropdown || $showResourceDropdown || $showFuncDropdown || $showEquipmentDropdown ? 'block' : 'none' }};">
     </div>
+
+    <!-- Loading Indicator -->
+    <div wire:loading.delay wire:target='submit' class="position-fixed"
+        style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(178, 188, 202, 0.1); z-index: 9999;">
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="text-center">
+                <div class="mb-3"
+                    style="width: 3rem; height: 3rem; margin: 0 auto; border-radius: 50%; background: #1572e8; animation: grow 1.5s ease-in-out infinite;">
+                </div>
+                <h5 style="color: #1572e8;"></h5>
+            </div>
+        </div>
+    </div>
 </div>
 
 @push('styles')
     <style>
+        @keyframes grow {
+
+            0%,
+            100% {
+                transform: scale(0.5);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
         .switch {
             position: relative;
             display: inline-block;
@@ -435,14 +461,38 @@
                 });
             });
 
-            Livewire.on('show-error-alert', function(data) {
+            Livewire.on('confirmSubmit', function(data) {
                 swal({
-                    title: data[0].title,
-                    text: data[0].message,
-                    icon: "error",
-                    button: "OK",
+                    title: "Are you sure?",
+                    text: "You are about to submit this work order. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-success btn-pill"
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.submit();
+                    }
                 });
             });
+
+
+        }, {
+            once: true
         });
 
         document.addEventListener('livewire:navigated', function() {
@@ -468,7 +518,40 @@
                 });
             });
 
-            
+            Livewire.on('confirmSubmit', function(data) {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to submit this work order. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-success btn-pill"
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.submit();
+                    }
+                });
+            });
+
+
+
+
+        }, {
+            once: true
         });
 
         // Auto hide dropdowns when clicking outside

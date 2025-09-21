@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use Livewire\Component;
 use App\Models\Department;
+use App\Models\PlannerGroup;
 use App\Models\RoleAssignment;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
@@ -23,25 +24,39 @@ class Register extends Component
     public $departments = [];
     public $roles = [];
     public $showEditModal = false;
+    public $section;
+    public $edit_section;
     public $editUserId;
     public $edit_name, $edit_email, $edit_nup, $edit_dept_id, $edit_company, $edit_role_id;
+    public $planner_group_id;
+    public $planner_groups = [];
+    public $edit_planner_group_id;
 
     public function mount()
     {
         $this->departments = Department::orderBy('name')->get();
         $this->roles = Role::orderBy('name')->get();
+        $this->planner_groups = PlannerGroup::orderBy('name')->get();
     }
 
     public function rules()
     {
-        return [
+        $rules = [
             'name' => 'required|string|max:100',
             'dept_id' => 'required|integer',
+            'section' => 'required|string|max:15',
             'nup' => 'required|string|max:20|unique:users',
             'email' => 'required|email|max:50|unique:users',
             'company' => 'required|string|max:50',
             'role_id' => 'required|integer',
         ];
+
+        // TAMBAHAN BARU - Conditional validation untuk planner_group_id
+        if ($this->dept_id == 1) {
+            $rules['planner_group_id'] = 'required|integer';
+        }
+
+        return $rules;
     }
 
     public function assignRole($userId, $roleId, $deptId)
@@ -88,10 +103,12 @@ class Register extends Component
             $user = User::create([
                 'name' => $this->name,
                 'dept_id' => $this->dept_id,
+                'section' => $this->section,
                 'nup' => $this->nup,
                 'email' => $this->email,
                 'company' => $this->company,
                 'role_id' => $this->role_id,
+                'planner_group_id' => $this->dept_id == 1 ? $this->planner_group_id : null, // TAMBAHAN BARU
                 'is_default_password' => true,
                 'password' => bcrypt($this->nup),
             ]);
@@ -101,7 +118,7 @@ class Register extends Component
                 $this->assignRole($user->id, $this->role_id, $this->dept_id);
             }
             // Reset form fields
-            $this->reset(['name', 'dept_id', 'nup', 'email', 'company', 'role_id']);
+            $this->reset(['name', 'dept_id', 'nup', 'email', 'company', 'role_id', 'section', 'planner_group_id']);
             $this->resetValidation();
 
 
@@ -135,21 +152,31 @@ class Register extends Component
         $this->edit_email = $user->email;
         $this->edit_nup = $user->nup;
         $this->edit_dept_id = $user->dept_id;
+        $this->edit_section = $user->section;
         $this->edit_company = $user->company;
         $this->edit_role_id = $user->role_id;
+        $this->edit_planner_group_id = $user->planner_group_id;
         $this->showEditModal = true;
     }
 
     public function confirmUpdateUser()
     {
-        $this->validate([
+        $rules = [
             'edit_name' => 'required|string|max:100',
             'edit_email' => 'required|email|max:50|unique:users,email,' . $this->editUserId,
             'edit_nup' => 'required|string|max:20|unique:users,nup,' . $this->editUserId,
             'edit_dept_id' => 'required|integer',
+            'edit_section' => 'required|string|max:15',
             'edit_company' => 'required|string|max:50',
             'edit_role_id' => 'required|integer',
-        ]);
+        ];
+
+        // TAMBAHAN BARU - Conditional validation untuk edit
+        if ($this->edit_dept_id == 1) {
+            $rules['edit_planner_group_id'] = 'required|integer';
+        }
+
+        $this->validate($rules);
 
         // Dispatch confirmation dialog
         $this->dispatch('confirmUpdate');
@@ -170,11 +197,11 @@ class Register extends Component
                 'email' => $this->edit_email,
                 'nup' => $this->edit_nup,
                 'dept_id' => $this->edit_dept_id,
+                'section' => $this->edit_section,
                 'company' => $this->edit_company,
                 'role_id' => $this->edit_role_id,
+                'planner_group_id' => $this->edit_dept_id == 1 ? $this->edit_planner_group_id : null, // TAMBAHAN BARU
             ]);
-
-
 
             $this->closeRegisterModal();
 
@@ -202,8 +229,6 @@ class Register extends Component
             Department::where('pic_id', $id)->update(['pic_id' => null]);
 
             $user->delete();
-
-
 
             $this->dispatch('userDeleted', [
                 'title' => 'Deleted!',
@@ -243,13 +268,28 @@ class Register extends Component
 
     public function closeRegisterModal()
     {
-        // dd('Closing modal');
         $this->showEditModal = false;
-        $this->reset(['editUserId', 'edit_name', 'edit_email', 'edit_nup', 'edit_dept_id', 'edit_company', 'edit_role_id']);
+        $this->reset(['editUserId', 'edit_name', 'edit_email', 'edit_nup', 'edit_dept_id', 'edit_section', 'edit_company', 'edit_role_id', 'edit_planner_group_id']); // TAMBAH 'edit_planner_group_id'
         $this->resetValidation();
-
-        // Dispatch event to reinitialize DataTable
         $this->dispatch('registerModalClosed');
+    }
+
+    public function updatedDeptId()
+    {
+        if ($this->dept_id != 1) {
+            $this->planner_group_id = null;
+        }
+        $this->resetValidation(['planner_group_id']);
+        // dd('tst');
+        $this->dispatch('reinitTable');
+    }
+
+    public function updatedEditDeptId()
+    {
+        if ($this->edit_dept_id != 1) {
+            $this->edit_planner_group_id = null;
+        }
+        $this->resetValidation(['edit_planner_group_id']);
     }
 
     public function render()

@@ -54,6 +54,12 @@
                         <p>Create SPK</p>
                     </a>
                 </li>
+                <li class="nav-item {{ request()->routeIs('work-order') ? 'active' : '' }}">
+                    <a href="{{ route('work-order') }}" wire:navigate>
+                        <i class="fas fa-plus"></i>
+                        <p>Monitoring SPK</p>
+                    </a>
+                </li>
                 <li class="nav-item {{ request()->routeIs('work-order.spv-approval') ? 'active' : '' }}">
                     <a href="{{ route('work-order.spv-approval') }}" wire:navigate>
                         <i class="fas fa-plus"></i>
@@ -64,6 +70,18 @@
                     <a href="{{ route('work-order.assigned') }}" wire:navigate>
                         <i class="fas fa-file"></i>
                         <p>List SPK Assigned</p>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('sparepart.order') ? 'active' : '' }}">
+                    <a href="{{ route('sparepart.order') }}" wire:navigate>
+                        <i class="fas fa-file"></i>
+                        <p>List of Sparepart Order</p>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('register.team') ? 'active' : '' }}">
+                    <a href="{{ route('register.team') }}" wire:navigate>
+                        <i class="fas fa-file"></i>
+                        <p>List of Registered Member</p>
                     </a>
                 </li>
             </ul>

@@ -74,7 +74,7 @@
                                         <tr>
                                             <td>
                                                 <div class="btn-group" role="group">
-                                                    <button type="button" class="btn btn-sm btn-info"
+                                                    <button type="button" class="btn btn-link btn-lg btn-info"
                                                         title="View Details"
                                                         wire:click="openDetailModal({{ $workOrder->id }})">
                                                         <i class="fas fa-edit"></i>
@@ -82,7 +82,46 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span> {{ $workOrder->status }} </span>
+                                                @switch($workOrder->status)
+                                                    @case('Waiting for SPV Approval')
+                                                        <span
+                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Requested to change planner group')
+                                                        <span
+                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Planned')
+                                                        <span
+                                                            class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Waiting for Maintenance Approval')
+                                                        <span
+                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Rejected by Maintenance')
+                                                        <span
+                                                            class="badge badge-danger">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Received by Maintenance')
+                                                        <span
+                                                            class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Requested to be closed')
+                                                        <span
+                                                            class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @default
+                                                        <span
+                                                            class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                @endswitch
                                             </td>
                                             <td>
                                                 @switch($workOrder->urgent_level)
@@ -294,7 +333,13 @@
                             <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("reject","spvMaintenance")'>Reject</button>
-                                <button class="btn btn-success btn-pill" data-toggle="modal"
+                            <button class="btn btn-success btn-pill" data-toggle="modal"
+                                data-target="#approvalMaintenance">Approve</button>
+                        @elseif($selectedWorkOrder->status == 'Requested to change planner group' && !$selectedWorkOrder->is_spv_rejected)
+                            <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
+                                data-target="#popupModal"
+                                wire:click='openPopupModal("rejectChange","spvMaintenance")'>Reject</button>
+                            <button class="btn btn-success btn-pill" data-toggle="modal"
                                 data-target="#approvalMaintenance">Approve</button>
                         @endif
                     </div>
@@ -303,130 +348,162 @@
         </div>
     @endif
 
-    {{-- Approval Maintenance Modal --}}
-    <div wire:ignore.self class="modal fade" data-backdrop="static" id="approvalMaintenance" tabindex="-1"
-        role="dialog">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content shadow-lg">
-                <div class="modal-header bg-success">
-                    <h5 class="modal-title text-white">Assign Team Member</h5>
-                    <button type="button" class="close text-white" wire:click="resetMaintenanceApprovalForm"
-                        data-dismiss="modal">
-                        <span>&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-12">
-                            <!-- PIC -->
-                            <div class="form-group">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <label class="strong">PIC <span class="text-danger">*</span></label>
-                                </div>
-                                <select class="custom-select" wire:model.live="selectedPic">
-                                    <option value="">Select PIC</option>
-                                    @foreach ($users as $user)
-                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Team Members -->
-                            <div class="form-group">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <label class="strong">Team Members <span class="text-danger">*</span></label>
+    @if ($selectedWorkOrder)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="approvalMaintenance" tabindex="-1"
+            role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-success">
+                        <h5 class="modal-title text-white">Assign Team Member</h5>
+                        <button type="button" class="close text-white" wire:click="resetMaintenanceApprovalForm"
+                            data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <!-- PIC -->
+                                <div class="form-group">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="strong">PIC <span class="text-danger">*</span></label>
+                                    </div>
+                                    <select class="custom-select" wire:model.live="selectedPic">
+                                        <option value="">Select PIC</option>
+                                        @foreach ($users as $user)
+                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
 
-                                @foreach ($teamMembers as $index => $member)
-                                    <div class="input-group mb-2">
-                                        <select class="custom-select" wire:model="teamMembers.{{ $index }}">
-                                            <option value="">Select Team Member {{ $index + 1 }}</option>
-                                            @foreach ($users as $user)
-                                                @if ($user->id != $selectedPic)
-                                                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                <!-- Team Members -->
+                                <div class="form-group">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="strong">Team Members <span class="text-danger">*</span></label>
+                                    </div>
+
+                                    @foreach ($teamMembers as $index => $member)
+                                        <div class="input-group mb-2">
+                                            <select class="custom-select"
+                                                wire:model="teamMembers.{{ $index }}"
+                                                wire:key="team-member-{{ $index }}"
+                                                @disabled($selectedPic == '')>
+                                                <option value="">Select Team Member {{ $index + 1 }}</option>
+
+                                                {{-- Pastikan nilai yang sudah dipilih tetap muncul --}}
+                                                @if ($member && $member != $selectedPic)
+                                                    @php $current = $users->firstWhere('id', $member); @endphp
+                                                    @if ($current)
+                                                        <option value="{{ $current->id }}">{{ $current->name }}
+                                                        </option>
+                                                    @endif
                                                 @endif
-                                            @endforeach
-                                        </select>
-                                        <div class="input-group-append">
-                                            @if ($index == 0)
-                                                @if (count($teamMembers) < 10)
-                                                    <button type="button" class="btn btn-success btn-sm"
-                                                        wire:click="addTeamMember" title="Add another team member">
-                                                        <i class="fas fa-plus"></i>
+                                                {{-- Render user yang eligible --}}
+                                                @foreach ($users as $user)
+                                                    @php
+                                                        // Cek apakah user sudah ada di tim (selain slot ini sendiri)
+                                                        $alreadyChosen = collect($teamMembers)
+                                                            ->except($index) // abaikan slot ini sendiri
+                                                            ->contains($user->id);
+                                                    @endphp
+                                                    @if ($user->id != $selectedPic && !$alreadyChosen)
+                                                        <option value="{{ $user->id }}">{{ $user->name }}
+                                                        </option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+
+                                            <div class="input-group-append">
+                                                @if ($index == 0)
+                                                    @if (count($teamMembers) < count($users) - 1)
+                                                        <button type="button" class="btn btn-success btn-sm"
+                                                            wire:click="addTeamMember"
+                                                            title="Add another team member">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    @endif
+                                                @else
+                                                    <button type="button" class="btn btn-danger btn-sm"
+                                                        wire:click="removeTeamMember({{ $index }})"
+                                                        title="Remove this team member">
+                                                        <i class="fas fa-minus"></i>
                                                     </button>
                                                 @endif
-                                            @else
-                                                <button type="button" class="btn btn-danger btn-sm"
-                                                    wire:click="removeTeamMember({{ $index }})"
-                                                    title="Remove this team member">
-                                                    <i class="fas fa-minus"></i>
-                                                </button>
-                                            @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+
+                                    <small class="text-muted">Jika pic atau team member tidak ditemukan <a
+                                            href="{{ route('register.team') }}" target="_blank"
+                                            class="badge btn-outline-primary text-decoration-none">tambahkan
+                                            team</a></small>
+                                </div>
+
+                                <!-- Order Type -->
+                                <div class="form-group">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="strong">Order Type <span class="text-danger">*</span></label>
+                                    </div>
+                                    <select class="custom-select" wire:model.live="selectedOrderType">
+                                        <option value="">Select Order Type</option>
+                                        @foreach ($orderTypes as $orderType)
+                                            <option value="{{ $orderType->id }}">
+                                                {{ $orderType->type ?? $orderType->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Maintenance Activity Type -->
+                                <div class="form-group">
+                                    <label class="strong">Maintenance Activity Type <span
+                                            class="text-danger">*</span></label>
+                                    <select class="custom-select" wire:model="selectedMat"
+                                        {{ !$selectedOrderType ? 'disabled' : '' }}>
+                                        <option value="">Select MAT</option>
+                                        @foreach ($mats as $mat)
+                                            <option value="{{ $mat->id }}">{{ $mat->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <!-- Start Date Time -->
+                                        <div class="form-group">
+                                            <label class="strong">Start Date Time <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="datetime-local" class="form-control"
+                                                wire:model="startDateTime">
                                         </div>
                                     </div>
-                                @endforeach
-                                <small class="text-muted">Jika pic atau team member tidak ditemukan <a href="/team/create" target="_blank" class="badge btn-outline-primary text-decoration-none">tambahkan team</a></small>
-                            </div>
-
-                            <!-- Order Type -->
-                            <div class="form-group">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <label class="strong">Order Type <span class="text-danger">*</span></label>
-                                </div>
-                                <select class="custom-select" wire:model.live="selectedOrderType">
-                                    <option value="">Select Order Type</option>
-                                    @foreach ($orderTypes as $orderType)
-                                        <option value="{{ $orderType->id }}">
-                                            {{ $orderType->type ?? $orderType->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Maintenance Activity Type -->
-                            <div class="form-group">
-                                <label class="strong">Maintenance Activity Type <span
-                                        class="text-danger">*</span></label>
-                                <select class="custom-select" wire:model="selectedMat"
-                                    {{ !$selectedOrderType ? 'disabled' : '' }}>
-                                    <option value="">Select MAT</option>
-                                    @foreach ($mats as $mat)
-                                        <option value="{{ $mat->id }}">{{ $mat->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <!-- Start Date Time -->
-                                    <div class="form-group">
-                                        <label class="strong">Start Date Time <span
-                                                class="text-danger">*</span></label>
-                                        <input type="datetime-local" class="form-control" wire:model="startDateTime">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <!-- Finish Date Time -->
-                                    <div class="form-group">
-                                        <label class="strong">Finish Date Time <span
-                                                class="text-danger">*</span></label>
-                                        <input type="datetime-local" class="form-control"
-                                            wire:model="finishDateTime">
+                                    <div class="col-md-6">
+                                        <!-- Finish Date Time -->
+                                        <div class="form-group">
+                                            <label class="strong">Finish Date Time <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="datetime-local" class="form-control"
+                                                wire:model="finishDateTime">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-pill"
-                        wire:click="resetMaintenanceApprovalForm" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success btn-pill"
-                        wire:click="confirmMaintenanceApprove">Approve</button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-pill"
+                            wire:click="resetMaintenanceApprovalForm" data-dismiss="modal">Cancel</button>
+                        @if ($selectedWorkOrder->status == 'Requested to change planner group')
+                            <button type="button" class="btn btn-success btn-pill"
+                                wire:click='confirmApproveChange'>Approve & Change Planner Group</button>
+                        @else
+                            <button type="button" class="btn btn-success btn-pill"
+                                wire:click="confirmMaintenanceApprove">Approve</button>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
+    @endif
     <!-- Popup Modal -->
     <div wire:ignore.self class="modal fade" data-backdrop="static" id="popupModal" tabindex="-1" role="dialog">
         <div class="modal-dialog modal-dialog-centered" role="document">
@@ -446,23 +523,26 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" wire:click="resetPopup"
+                        <button type="button" class="btn btn-pill btn-secondary" wire:click="resetPopup"
                             data-dismiss="modal">Cancel</button>
                         @if ($popupModalActor == 'spvUser')
                             @if ($popupModalAction == 'reject')
                                 <button type="button" wire:click="confirmReject"
-                                    class="btn btn-danger">Reject</button>
+                                    class="btn btn-pill btn-danger">Reject</button>
                             @elseif($popupModalAction == 'approve')
                                 <button type="button" wire:click="confirmApprove"
-                                    class="btn btn-success">Approve</button>
+                                    class="btn btn-pill btn-success">Approve</button>
                             @endif
                         @elseif ($popupModalActor == 'spvMaintenance')
                             @if ($popupModalAction == 'reject')
                                 <button type="button" wire:click="confirmMaintenanceReject"
-                                    class="btn btn-danger">Reject</button>
+                                    class="btn btn-pill btn-danger">Reject</button>
                             @elseif($popupModalAction == 'receive')
                                 <button type="button" wire:click="confirmMaintenanceReceive"
-                                    class="btn btn-info">Receive</button>
+                                    class="btn btn-pill btn-info">Receive</button>
+                            @elseif($popupModalAction == 'rejectChange')
+                                <button type="button" wire:click="confirmRejectChange"
+                                    class="btn btn-pill btn-danger">Reject</button>
                             @endif
                         @endif
                     </div>
@@ -472,15 +552,36 @@
     </div>
 
     <!-- Loading Indicator -->
-    <div wire:loading class="position-fixed"
-        style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.1); z-index: 9999;">
+    <div wire:loading.delay class="position-fixed"
+        style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(178, 188, 202, 0.1); z-index: 9999;">
         <div class="d-flex justify-content-center align-items-center h-100">
-            <div class="spinner-border text-primary" role="status">
-                <span class="sr-only">Loading...</span>
+            <div class="text-center">
+                <div class="mb-3"
+                    style="width: 3rem; height: 3rem; margin: 0 auto; border-radius: 50%; background: #1572e8; animation: grow 1.5s ease-in-out infinite;">
+                </div>
+                <h5 style="color: #1572e8;"></h5>
             </div>
         </div>
     </div>
 </div>
+
+@push('styles')
+    <style>
+        @keyframes grow {
+
+            0%,
+            100% {
+                transform: scale(0.5);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+@endpush
 
 @push('scripts')
     <script>
@@ -529,12 +630,14 @@
                             value: false,
                             visible: true,
                             closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Approve",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
                         }
                     },
                     dangerMode: false,
@@ -557,12 +660,14 @@
                             value: false,
                             visible: true,
                             closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Approve",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
                         }
                     },
                     dangerMode: false,
@@ -595,12 +700,14 @@
                             value: false,
                             visible: true,
                             closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Reject",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger"
                         }
                     },
                     dangerMode: true,
@@ -632,12 +739,14 @@
                             value: false,
                             visible: true,
                             closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Receive",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-info"
                         }
                     },
                     dangerMode: false,
@@ -669,12 +778,14 @@
                             value: false,
                             visible: true,
                             closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Reject",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
                         }
                     },
                     dangerMode: true,
@@ -685,10 +796,80 @@
                 });
             });
 
+            Livewire.on('confirmRejectChange', () => {
+                if (!@this.reason || @this.reason.trim() === '') {
+                    swal({
+                        title: "Error!",
+                        text: "Please provide rejection reason before proceeding.",
+                        icon: "error",
+                        button: "OK",
+                    });
+                    return;
+                }
+
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to reject this request to change planner group. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Reject",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.rejectChange();
+                    }
+                });
+            });
+
+            Livewire.on('confirmApproveChange', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to approve this request to change planner group. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Approve",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.approveChange();
+                    }
+                });
+            });
+
             // Prevent accidental modal closing
             $('#detailModal').on('hide.bs.modal', function(e) {
                 if (e.target !== this) return false;
             });
+        }, {
+            once: true
         });
 
         document.addEventListener('livewire:navigated', function() {
@@ -731,13 +912,15 @@
                             text: "Cancel",
                             value: false,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Approve",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
                         }
                     },
                     dangerMode: false,
@@ -756,13 +939,15 @@
                             text: "Cancel",
                             value: false,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Approve",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
                         }
                     },
                     dangerMode: false,
@@ -791,13 +976,15 @@
                             text: "Cancel",
                             value: false,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Reject",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger"
                         }
                     },
                     dangerMode: true,
@@ -826,13 +1013,15 @@
                             text: "Cancel",
                             value: false,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Receive",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-info"
                         }
                     },
                     dangerMode: false,
@@ -861,13 +1050,15 @@
                             text: "Cancel",
                             value: false,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill"
                         },
                         confirm: {
                             text: "Yes, Reject",
                             value: true,
                             visible: true,
-                            closeModal: true
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger"
                         }
                     },
                     dangerMode: true,
@@ -875,6 +1066,76 @@
                     if (result) @this.rejectMaintenance();
                 });
             });
+
+            Livewire.on('confirmRejectChange', () => {
+                if (!@this.reason || @this.reason.trim() === '') {
+                    swal({
+                        title: "Error!",
+                        text: "Please provide rejection reason before proceeding.",
+                        icon: "error",
+                        button: "OK",
+                    });
+                    return;
+                }
+
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to reject this request to change planner group. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Reject",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.rejectChange();
+                    }
+                });
+            });
+
+            Livewire.on('confirmApproveChange', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to approve this request to change planner group. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Approve",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.approveChange();
+                    }
+                });
+            });
+        }, {
+            once: true
         });
     </script>
 @endpush

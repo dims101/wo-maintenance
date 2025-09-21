@@ -8,16 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('wo_planner_groups', function (Blueprint $table) {
+        Schema::create('activity_lists', function (Blueprint $table) {
             $table->id();
             $table->foreignId('approval_id')->nullable()
-                ->constrained('maintenance_approvals')
-                ->nullOnDelete();
-            $table->foreignId('planner_group_id')->nullable()
-                ->constrained('planner_groups')
-                ->nullOnDelete();
-            $table->string('status', 50)->nullable();
-            $table->string('pg_reject_reason', 255)->nullable();
+                  ->constrained('maintenance_approvals')
+                  ->nullOnDelete();
+
+            $table->string('task', 50)->nullable();
+            $table->boolean('is_done')->nullable();
 
             $table->timestamptz('created_at')->nullable();
             $table->timestamptz('updated_at')->nullable();
@@ -27,6 +25,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('wo_planner_groups');
+        Schema::dropIfExists('activity_lists');
     }
 };

@@ -59,7 +59,12 @@
                                 <tr>
                                     <th>Action</th>
                                     <th>Status</th>
-                                    <th>Notification Number</th>
+                                    <th>Progress</th>
+                                    <th>Urgent Level</th>
+                                    <th>Notification Date</th>
+                                    <th>Requester Department</th>
+                                    <th>Requester Name</th>
+                                    <th>Malfunction start</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -78,6 +83,11 @@
                                             <td>
                                                 @switch($workOrder->status)
                                                     @case('Waiting for SPV Approval')
+                                                        <span
+                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Requested to change planner group')
                                                         <span
                                                             class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
                                                     @break
@@ -102,19 +112,46 @@
                                                             class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
                                                     @break
 
+                                                    @case('Requested to be closed')
+                                                        <span
+                                                            class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
                                                     @default
                                                         <span
                                                             class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
                                                 @endswitch
                                             </td>
+                                            <td class="text-center">
+                                                <div class="progress">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                                        role="progressbar" aria-valuenow="{{ $workOrder->progress }}"
+                                                        aria-valuemin="0" aria-valuemax="100"
+                                                        style="width: {{ $workOrder->progress }}%">
+                                                        {{ $workOrder->progress > 0 ? $workOrder->progress . '%' : '0%' }}
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td>
-                                                {{ $workOrder->notification_number }}
+                                                {{ $workOrder->urgent_level }}
+                                            </td>
+                                            <td>
+                                                {{ $workOrder->notification_date->format('d M Y') }}
+                                            </td>
+                                            <td>
+                                                {{ $workOrder->department->name }}
+                                            </td>
+                                            <td>
+                                                {{ $workOrder->user->name }}
+                                            </td>
+                                            <td>
+                                                {{ $workOrder->malfunction_start->format('d M Y H:i') }}
                                             </td>
                                         </tr>
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="3" class="text-center">
+                                        <td colspan="8" class="text-center">
                                             <div class="py-4">
                                                 <i class="fas fa-search fa-2x text-muted mb-3"></i>
                                                 <p class="text-muted">No work orders found</p>
@@ -265,119 +302,23 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
-                        <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                            data-target="#sparepartModal">Sparepart reservation</button>
-                        <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
-                            data-target="#progressModal">Update
-                            progress</button>
-                        <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
-                            data-target="#closeModal">Request to
-                            close</button>
+                        @if (
+                            $selectedWorkOrder->status == 'Planned' ||
+                                $selectedWorkOrder->status == 'Requested to be closed' ||
+                                $selectedWorkOrder->status == 'Requested to change planner group')
+                            <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
+                                data-target="#progressModal">Detail
+                                progress</button>
+                        @endif
                     </div>
                 </div>
             </div>
         </div>
     @endif
 
-    {{-- Sparepart Modal --}}
-    @if ($selectedWorkOrder)
-        <div wire:ignore.self class="modal fade" data-backdrop="static" id="sparepartModal" tabindex="-1"
-            role="dialog">
-            <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content shadow-lg">
-                    <div class="modal-header bg-info">
-                        <h5 class="modal-title text-white">Sparepart Reservation</h5>
-                        <button type="button" class="close text-white" wire:click="resetSparepartModal"
-                            data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <label class="strong">Request Sparepart <span
-                                                class="text-danger">*</span></label>
-                                    </div>
-                                    @foreach ($sparepartItems as $index => $item)
-                                        <div class="row mb-3">
-                                            <div class="col-md-7">
-                                                <div class="position-relative">
-                                                    <input type="text" class="form-control"
-                                                        placeholder="Search sparepart..."
-                                                        wire:model.live="sparepartSearch.{{ $index }}"
-                                                        wire:input="searchSpareparts({{ $index }}, $event.target.value)"
-                                                        autocomplete="off" id="sparepart-input-{{ $index }}">
-
-                                                    @if (isset($sparepartResults[$index]))
-                                                        @if (!empty($sparepartResults[$index]))
-                                                            <div class="dropdown-menu show w-100"
-                                                                style="max-height: 200px; overflow-y: auto;"
-                                                                id="dropdown-{{ $index }}">
-                                                                @foreach ($sparepartResults[$index] as $sparepart)
-                                                                    <button type="button" class="dropdown-item"
-                                                                        onmousedown="event.preventDefault();"
-                                                                        wire:click="selectSparepart({{ $index }}, {{ $sparepart['id'] }})">
-                                                                        {{ $sparepart['code'] }} -
-                                                                        {{ $sparepart['name'] }}
-                                                                    </button>
-                                                                @endforeach
-                                                            </div>
-                                                        @elseif(isset($sparepartSearch[$index]) &&
-                                                                strlen($sparepartSearch[$index]) >= 3 &&
-                                                                !$this->sparepartItems[$index]['sparepart_id']
-                                                        )
-                                                            <div class="dropdown-menu show w-100"
-                                                                id="dropdown-{{ $index }}">
-                                                                <div class="dropdown-item-text text-muted">
-                                                                    <i class="fas fa-exclamation-circle"></i> Sparepart
-                                                                    tidak ditemukan
-                                                                </div>
-                                                            </div>
-                                                        @endif
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="number" class="form-control" placeholder="Qty"
-                                                    wire:model="sparepartItems.{{ $index }}.quantity"
-                                                    min="1">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <div class="btn-group w-100">
-                                                    @if ($index == 0)
-                                                        <button type="button" class="btn btn-success btn-sm w-100"
-                                                            wire:click="addSparepartItem" title="Add sparepart">
-                                                            <i class="fas fa-plus"></i>
-                                                        </button>
-                                                    @else
-                                                        <button type="button" class="btn btn-danger btn-sm w-100"
-                                                            wire:click="removeSparepartItem({{ $index }})"
-                                                            title="Remove sparepart">
-                                                            <i class="fas fa-minus"></i>
-                                                        </button>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetSparepartModal"
-                            data-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success btn-pill"
-                            wire:click="submitSparepart">Submit</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    @if ($selectedWorkOrder)
+    @if (
+        $selectedWorkOrder &&
+            ($selectedWorkOrder->status == 'Planned' || $selectedWorkOrder->status == 'Requested to change planner group'))
         <div wire:ignore.self class="modal fade" data-backdrop="static" id="progressModal" tabindex="-1"
             role="dialog">
             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -396,20 +337,11 @@
                                     <label class="strong">Progress</label>
                                     <div class="progress">
                                         <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                            role="progressbar" aria-valuenow="{{ $this->calculateProgress() }}"
+                                            role="progressbar"
+                                            aria-valuenow="{{ $selectedWorkOrder->maintenanceApproval->progress }}"
                                             aria-valuemin="0" aria-valuemax="100"
-                                            style="width: {{ $this->calculateProgress() }}%">
-                                            {{ $this->calculateProgress() }}%
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="strong">Add a new task <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" wire:model="newTask"
-                                            wire:keydown.enter="addNewTask" placeholder="Enter task name">
-                                        <div class="input-group-append">
-                                            <button class="btn btn-success" wire:click="addNewTask">Add</button>
+                                            style="width: {{ $selectedWorkOrder->maintenanceApproval->progress }}%">
+                                            {{ $selectedWorkOrder->maintenanceApproval->progress }}%
                                         </div>
                                     </div>
                                 </div>
@@ -419,41 +351,15 @@
                                     @if (!empty($activityLists))
                                         @foreach ($activityLists as $task)
                                             <div class="d-flex align-items-center mb-2">
-                                                @if ($editingTaskId == $task['id'])
-                                                    <div class="flex-grow-1 d-flex align-items-center">
-                                                        <input type="text" class="form-control mr-2"
-                                                            wire:model="editingTaskName"
-                                                            wire:keydown.enter="updateTaskName"
-                                                            style="max-width: 300px;">
-                                                        <button class="btn btn-sm btn-pill btn-success mr-1"
-                                                            wire:click="updateTaskName">Save</button>
-                                                        <button class="btn btn-sm btn-secondary btn-pill"
-                                                            wire:click="cancelEditTask">Cancel</button>
-                                                    </div>
-                                                @else
-                                                    <div class="custom-control custom-checkbox flex-grow-1">
-                                                        <input type="checkbox" class="custom-control-input"
-                                                            id="task{{ $task['id'] }}"
-                                                            @if ($task['is_done']) checked @endif
-                                                            wire:click="toggleTask({{ $task['id'] }})">
-                                                        <label class="custom-control-label"
-                                                            for="task{{ $task['id'] }}">
-                                                            {{ $task['task'] }}
-                                                        </label>
-                                                    </div>
-                                                    <div class="btn-group" role="group">
-                                                        <button class="btn btn-sm btn-outline-primary"
-                                                            wire:click="editTask({{ $task['id'] }})"
-                                                            title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn btn-sm btn-outline-danger"
-                                                            wire:click="deleteTask({{ $task['id'] }})"
-                                                            title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                @endif
+                                                <div class="custom-control custom-checkbox flex-grow-1">
+                                                    <input type="checkbox" class="custom-control-input"
+                                                        id="task{{ $task['id'] }}"
+                                                        @if ($task['is_done']) checked @endif disabled>
+                                                    <label class="custom-control-label"
+                                                        for="task{{ $task['id'] }}">
+                                                        {{ $task['task'] }}
+                                                    </label>
+                                                </div>
                                             </div>
                                         @endforeach
                                     @else
@@ -465,61 +371,45 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" wire:click="resetProgressModal"
-                            data-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success btn-pill"
-                            wire:click="confirmProgress">Update</button>
+                            data-dismiss="modal">Close</button>
                     </div>
                 </div>
             </div>
         </div>
     @endif
 
-    <!-- Close Modal -->
-    @if ($selectedWorkOrder)
-        <div wire:ignore.self class="modal fade" data-backdrop="static" id="closeModal" tabindex="-1"
-            role="dialog">
-            <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content shadow-lg">
-                    <div class="modal-header bg-success">
-                        <h5 class="modal-title text-white">Request to close</h5>
-                        <button type="button" class="close text-white" wire:click="resetCloseModal"
-                            data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <form>
-                        <div class="modal-body">
-                            <div class="form-group">
-                                <label for="reason">Reason:</label>
-                                <textarea wire:model='reason' name="reason" class="form-control" rows="3" required
-                                    placeholder="Please provide a reason..."></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary btn-pill" wire:click="resetCloseModal"
-                                data-dismiss="modal">Cancel</button>
-                            <button type="button"
-                                wire:click="confirmChange({{ $selectedWorkOrder->planner_group_id }})"
-                                class="btn btn-warning btn-pill">Planner change</button>
-                            <button type="button" wire:click="confirmClose" class="btn btn-success btn-pill">Request
-                                to close</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    @endif
 
     <!-- Loading Indicator -->
-    <div wire:loading class="position-fixed"
-        style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.1); z-index: 9999;">
+    <div wire:loading.delay class="position-fixed"
+        style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(178, 188, 202, 0.1); z-index: 9999;">
         <div class="d-flex justify-content-center align-items-center h-100">
-            <div class="spinner-border text-primary" role="status">
-                <span class="sr-only">Loading...</span>
+            <div class="text-center">
+                <div class="mb-3"
+                    style="width: 3rem; height: 3rem; margin: 0 auto; border-radius: 50%; background: #1572e8; animation: grow 1.5s ease-in-out infinite;">
+                </div>
+                <h5 style="color: #1572e8;"></h5>
             </div>
         </div>
     </div>
 </div>
+
+@push('styles')
+    <style>
+        @keyframes grow {
+
+            0%,
+            100% {
+                transform: scale(0.5);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+@endpush
 
 @push('scripts')
     <script>
@@ -538,14 +428,12 @@
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
                         },
                         confirm: {
                             text: "Yes, Submit",
                             value: true,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            closeModal: true
                         }
                     },
                     dangerMode: false,
@@ -568,14 +456,12 @@
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
                         },
                         confirm: {
                             text: "Yes, Update",
                             value: true,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            closeModal: true
                         }
                     },
                     dangerMode: false,
@@ -606,17 +492,9 @@
                 window.open(url, '_blank');
             });
 
-            Livewire.on('unfinished', () => {
-                swal({
-                    title: "Error!",
-                    text: "Please finish all tasks before closing.",
-                    icon: "error",
-                    button: "OK",
-                });
-            });
-
             // Confirm approve with SweetAlert
             Livewire.on('confirmClose', () => {
+
                 if (!@this.reason || @this.reason.trim() === '') {
                     swal({
                         title: "Error!",
@@ -637,14 +515,12 @@
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-success",
                         },
                         confirm: {
                             text: "Yes, Approve",
                             value: true,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            closeModal: true
                         }
                     },
                     dangerMode: false,
@@ -655,34 +531,6 @@
                 });
             });
 
-            Livewire.on('confirmChange', () => {
-                swal({
-                    title: "Are you sure?",
-                    text: "You are about to change this planner group. This action cannot be undone.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Change Planner Group",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                    dangerMode: false,
-                }).then((result) => {
-                    if (result) {
-                        @this.changePlannerGroup();
-                    }
-                });
-            });
 
             // Prevent accidental modal closing
             $('#detailModal').on('hide.bs.modal', function(e) {
@@ -704,14 +552,12 @@
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
                         },
                         confirm: {
                             text: "Yes, Submit",
                             value: true,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            closeModal: true
                         }
                     },
                     dangerMode: false,
@@ -733,14 +579,12 @@
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
                         },
                         confirm: {
                             text: "Yes, Update",
                             value: true,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            closeModal: true
                         }
                     },
                     dangerMode: false,
@@ -750,36 +594,6 @@
                     }
                 });
             });
-
-            Livewire.on('confirmChange', () => {
-                swal({
-                    title: "Are you sure?",
-                    text: "You are about to change this planner group. This action cannot be undone.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Change Planner Group",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                    dangerMode: false,
-                }).then((result) => {
-                    if (result) {
-                        @this.changePlannerGroup();
-                    }
-                });
-            });
-
             Livewire.on('showDetailModal', () => {
                 setTimeout(() => {
                     $('#detailModal').modal('show');
@@ -796,15 +610,6 @@
 
             Livewire.on('openNewTab', (url) => {
                 window.open(url, '_blank');
-            });
-
-            Livewire.on('unfinished', () => {
-                swal({
-                    title: "Error!",
-                    text: "Please finish all tasks before closing.",
-                    icon: "error",
-                    button: "OK",
-                });
             });
 
             Livewire.on('confirmClose', () => {
@@ -827,15 +632,13 @@
                             text: "Cancel",
                             value: false,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
+                            closeModal: true
                         },
                         confirm: {
                             text: "Yes, close",
                             value: true,
                             visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            closeModal: true
                         }
                     },
                     dangerMode: false,
@@ -844,12 +647,12 @@
                 });
             });
 
-        });
 
-        Livewire.on('clearDropdown', (index) => {
-            setTimeout(() => {
-                @this.hideSparepartDropdown(index);
-            }, 100);
+            Livewire.on('clearDropdown', (index) => {
+                setTimeout(() => {
+                    @this.hideSparepartDropdown(index);
+                }, 100);
+            });
         });
     </script>
 @endpush

@@ -58,7 +58,7 @@ class User extends Authenticatable
         'section',
         'is_rejected',
         'status',
-        'reject_reason',
+        'reason',
         'is_defaul_password', // ⚠️ ikut nama kolom di migration
     ];
 

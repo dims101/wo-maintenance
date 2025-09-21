@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class WorkOrder extends Model
 {
@@ -27,6 +27,7 @@ class WorkOrder extends Model
         'is_spv_rejected',
         'spv_reject_reason',
         'spv_approve_reason',
+        'is_sparepart_complete',
     ];
 
     protected function casts(): array
@@ -36,6 +37,7 @@ class WorkOrder extends Model
             'malfunction_start' => 'datetime',
             'is_breakdown' => 'boolean',
             'is_spv_rejected' => 'boolean',
+            'is_sparepart_complete' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
@@ -60,5 +62,10 @@ class WorkOrder extends Model
     public function plannerGroup()
     {
         return $this->belongsTo(PlannerGroup::class, 'planner_group_id');
+    }
+
+    public function maintenanceApproval()
+    {
+        return $this->hasOne(MaintenanceApproval::class, 'wo_id', 'id');
     }
 }

@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SparepartList extends Model
 {
@@ -15,6 +15,8 @@ class SparepartList extends Model
         'barcode',
         'qty',
         'uom',
+        'planner_group_id',
+        'is_completed',
     ];
 
     protected function casts(): array
@@ -23,6 +25,7 @@ class SparepartList extends Model
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
+            'is_completed' => 'boolean',
         ];
     }
 
@@ -34,5 +37,10 @@ class SparepartList extends Model
     public function sparepart()
     {
         return $this->belongsTo(Sparepart::class, 'barcode', 'barcode');
+    }
+
+    public function plannerGroup()
+    {
+        return $this->belongsTo(PlannerGroup::class, 'planner_group_id');
     }
 }

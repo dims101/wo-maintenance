@@ -67,7 +67,7 @@
                                     <tr>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-warning" title="Edit Details"
-                                                wire:click="openDetailModal({{ $workOrder->id }})">
+                                                wire:click="openEditModal({{ $workOrder->id }})">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                         </td>
@@ -138,63 +138,181 @@
         <div wire:ignore.self class="modal fade" id="detailModal" tabindex="-1" role="dialog">
             <div class="modal-dialog modal-lg" role="document">
                 <div class="modal-content">
-                    <div class="modal-header bg-primary">
+                    <!-- Header berubah berdasarkan mode -->
+                    <div class="modal-header {{ $modalMode === 'edit' ? 'bg-warning' : 'bg-primary' }}">
                         <h5 class="modal-title text-white">
-                            <i class="fas fa-cogs mr-2"></i>
-                            Sparepart Details - {{ $selectedWorkOrder->notification_number }}
+                            <i class="fas {{ $modalMode === 'edit' ? 'fa-clipboard-check' : 'fa-cogs' }} mr-2"></i>
+                            {{ $modalMode === 'edit' ? 'Submit Sparepart' : 'Sparepart Details' }} -
+                            {{ $selectedWorkOrder->notification_number }}
                         </h5>
                         <button type="button" class="close text-white" data-dismiss="modal" wire:click="closeModal">
                             <span>&times;</span>
                         </button>
                     </div>
                     <div class="modal-body">
-                        <!-- Sparepart List Table -->
+                        <!-- Konten berbeda berdasarkan mode -->
+                        @if ($modalMode === 'view')
+                            <!-- MODE VIEW: Table biasa seperti sebelumnya -->
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="mb-3">
+                                        <i class="fas fa-list mr-2"></i>
+                                        Sparepart Requirements ({{ $sparepartDetails->count() }} items)
+                                    </h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover table-borderless">
+                                            <thead class="thead-light">
+                                                <tr>
+                                                    <th width="50">No</th>
+                                                    <th>No Material</th>
+                                                    <th width="100">Quantity</th>
+                                                    <th width="80">UOM</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @forelse ($sparepartDetails as $index => $detail)
+                                                    <tr>
+                                                        <td>{{ $index + 1 }}</td>
+                                                        <td>{{ $detail->sparepart->code ?? '-' }}</td>
+                                                        <td>{{ $detail->qty ?? '-' }}</td>
+                                                        <td>{{ $detail->uom ?? '-' }}</td>
+                                                    </tr>
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">
+                                                            <i class="fas fa-info-circle mr-2"></i>
+                                                            No sparepart details found for this work order.
+                                                        </td>
+                                                    </tr>
+                                                @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <!-- MODE EDIT: Form dengan Request Items -->
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="mb-3">
+                                        <i class="fas fa-list-alt mr-2"></i>
+                                        Requested Items ({{ $sparepartDetails->count() }} items)
+                                    </h6>
+
+                                    @foreach ($sparepartDetails as $index => $detail)
+                                        <div class="form-group">
+                                            <label>Request Item {{ $index + 1 }}</label>
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" readonly
+                                                    value="{{ $detail->sparepart->code ?? $detail->barcode }} - Qty: {{ $detail->qty }} {{ $detail->uom }}"
+                                                    style="background-color: #e9ecef;">
+                                                <div class="input-group-append">
+                                                    <button class="btn btn-primary" type="button"
+                                                        wire:click="openScanModal({{ $index }})"
+                                                        title="Scan Barcode">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+
+                                    <!-- Reference Table -->
+                                    <hr class="my-4">
+                                    <h6 class="mb-3">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Sparepart Details Reference
+                                    </h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="thead-light">
+                                                <tr>
+                                                    <th width="50">No</th>
+                                                    <th>No Material</th>
+                                                    <th width="100">Quantity</th>
+                                                    <th width="80">UOM</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($sparepartDetails as $index => $detail)
+                                                    <tr>
+                                                        <td>{{ $index + 1 }}</td>
+                                                        <td>{{ $detail->sparepart->code ?? '-' }}</td>
+                                                        <td>{{ $detail->qty }}</td>
+                                                        <td>{{ $detail->uom }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                            wire:click="closeModal">
+                            <i class="fas fa-times mr-2"></i>Close
+                        </button>
+
+                        <!-- Tombol Submit hanya muncul di mode edit -->
+                        @if ($modalMode === 'edit')
+                            <button type="button" class="btn btn-success">
+                                <i class="fas fa-check mr-2"></i>Submit Data
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Scan Barcode Modal -->
+    @if ($showScanModal)
+        <div wire:ignore.self class="modal fade" id="scanModal" tabindex="-1" role="dialog"
+            data-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-primary">
+                        <h5 class="modal-title text-white">
+                            <i class="fas fa-barcode mr-2"></i>Scan Barcode
+                        </h5>
+                        <button type="button" class="close text-white" wire:click="closeScanModal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="scannedBarcode">No Material</label>
+                            <input type="text" class="form-control" id="scannedBarcode"
+                                wire:model="scannedBarcode" placeholder="Autofill setelah discan">
+                        </div>
+
                         <div class="row">
-                            <div class="col-md-12">
-                                <h6 class="mb-3">
-                                    <i class="fas fa-list mr-2"></i>
-                                    Sparepart Requirements ({{ $sparepartDetails->count() }} items)
-                                </h6>
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover table-borderless">
-                                        <thead class="thead-light">
-                                            <tr>
-                                                <th width="50">No</th>
-                                                <th>No Material</th>
-                                                <th width="100">Quantity</th>
-                                                <th width="80">UOM</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse ($sparepartDetails as $index => $detail)
-                                                <tr>
-                                                    <td>{{ $index + 1 }}</td>
-                                                    <td>{{ $detail->sparepart->code ?? '-' }}</td>
-                                                    <td>{{ $detail->qty ?? '-' }} </td>
-                                                    <td>{{ $detail->uom ?? '-' }}</td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="8" class="text-center text-muted">
-                                                        <i class="fas fa-info-circle mr-2"></i>
-                                                        No sparepart details found for this work order.
-                                                    </td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="scannedQuantity">Quantity</label>
+                                    <input type="number" class="form-control" id="scannedQuantity"
+                                        wire:model="scannedQuantity" placeholder="Masukan QTY" step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="scannedUom">UOM</label>
+                                    <input type="text" class="form-control" id="scannedUom"
+                                        wire:model="scannedUom" placeholder="Masukan UOM">
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal" wire:click="closeModal">
+                        <button type="button" class="btn btn-secondary" wire:click="closeScanModal">
                             <i class="fas fa-times mr-2"></i>Close
                         </button>
-                        {{-- <button type="button" class="btn btn-primary">
-                            <i class="fas fa-print mr-2"></i>Print Report
+                        <button type="button" class="btn btn-success">
+                            <i class="fas fa-save mr-2"></i>Save Data
                         </button>
-                    </div> --}}
+                    </div>
                 </div>
             </div>
         </div>
@@ -226,9 +344,31 @@
                 $('#detailModal').modal('hide');
             });
 
+            // Show scan modal
+            Livewire.on('showScanModal', () => {
+                setTimeout(() => {
+                    $('#scanModal').modal('show');
+                }, 100);
+            });
+
+            // Close scan modal
+            Livewire.on('closeScanModal', () => {
+                $('#scanModal').modal('hide');
+            });
+
             // Prevent accidental modal closing
             $('#detailModal').on('hide.bs.modal', function(e) {
                 if (e.target !== this) return false;
+            });
+
+            // Prevent backdrop click on scan modal
+            $('#scanModal').on('hide.bs.modal', function(e) {
+                if (e.target !== this) return false;
+            });
+
+            // Ensure body keeps modal-open class when scan modal opens over detail modal
+            $('#scanModal').on('shown.bs.modal', function() {
+                $('body').addClass('modal-open');
             });
         });
 
@@ -242,6 +382,16 @@
 
             Livewire.on('closeDetailModal', () => {
                 $('#detailModal').modal('hide');
+            });
+
+            Livewire.on('showScanModal', () => {
+                setTimeout(() => {
+                    $('#scanModal').modal('show');
+                }, 100);
+            });
+
+            Livewire.on('closeScanModal', () => {
+                $('#scanModal').modal('hide');
             });
         });
     </script>

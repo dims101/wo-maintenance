@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ActivityList extends Model
 {
@@ -12,6 +12,8 @@ class ActivityList extends Model
 
     protected $fillable = [
         'approval_id',
+        'pm_id',
+        'planner_group_id',
         'task',
         'is_done',
     ];
@@ -29,5 +31,15 @@ class ActivityList extends Model
     public function approval()
     {
         return $this->belongsTo(MaintenanceApproval::class, 'approval_id');
+    }
+
+    public function plannerGroup()
+    {
+        return $this->belongsTo(PlannerGroup::class, 'planner_group_id');
+    }
+
+    public function preventiveMaintenance()
+    {
+        return $this->belongsTo(PreventiveMaintenance::class, 'pm_id');
     }
 }

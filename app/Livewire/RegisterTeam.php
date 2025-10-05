@@ -82,7 +82,7 @@ class RegisterTeam extends Component
                 'planner_group_id' => $this->planner_group_id,
                 'section' => $this->section,
                 'role_id' => 5, // Default role 5
-                'status' => 'pending', // Status pending
+                'status' => 'Pending', // Status pending
                 'is_rejected' => false,
                 'is_default_password' => true,
                 'password' => bcrypt($this->nup),
@@ -201,14 +201,14 @@ class RegisterTeam extends Component
             $user = User::findOrFail($id);
 
             $user->update([
-                'status' => 'approved',
+                'status' => 'Active', // Changed from 'approved' to 'active'
                 'is_rejected' => false,
                 'reject_reason' => null,
             ]);
 
             $this->dispatch('teamMemberApproved', [
                 'title' => 'Approved!',
-                'message' => "Team member {$user->name} has been approved successfully.",
+                'message' => "Team member {$user->name} has been approved and is now active.",
                 'icon' => 'success',
             ]);
 
@@ -221,7 +221,7 @@ class RegisterTeam extends Component
         }
     }
 
-    public function reject($id)
+    public function reject($id, $reason = null)
     {
         if (! $this->canEditDelete) {
             $this->dispatch('showAlert', [
@@ -233,13 +233,20 @@ class RegisterTeam extends Component
             return;
         }
 
+        // If no reason provided, dispatch event to show reason input
+        if (empty($reason)) {
+            $this->dispatch('showRejectInput', ['userId' => $id]);
+
+            return;
+        }
+
         try {
             $user = User::findOrFail($id);
 
             $user->update([
-                'status' => 'rejected',
+                'status' => 'Rejected',
                 'is_rejected' => true,
-                'reject_reason' => 'Rejected by manager',
+                'reject_reason' => $reason,
             ]);
 
             $this->dispatch('teamMemberRejected', [
@@ -331,7 +338,7 @@ class RegisterTeam extends Component
     public function render()
     {
         return view('livewire.register-team', [
-            'teamMembers' => User::where('dept_id', 1)->orderBy('created_at', 'desc')->get(),
+            'teamMembers' => User::with('actualManhours')->where('dept_id', 1)->orderBy('created_at', 'desc')->get(),
         ]);
     }
 }

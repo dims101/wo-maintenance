@@ -117,6 +117,16 @@
                                                             class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
                                                     @break
 
+                                                    @case('Need Revision')
+                                                        <span
+                                                            class="badge badge-primary">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Close')
+                                                        <span
+                                                            class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
                                                     @default
                                                         <span
                                                             class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
@@ -296,6 +306,13 @@
                                         value="{{ $selectedWorkOrder->equipment->functionalLocation->resource->name ?? '-' }}"
                                         readonly>
                                 </div>
+
+                                @if ($selectedWorkOrder->revision_note)
+                                    <div class="form-group">
+                                        <label class="strong">Revision notes</label>
+                                        <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->revision_note }}</textarea>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -318,7 +335,9 @@
 
     @if (
         $selectedWorkOrder &&
-            ($selectedWorkOrder->status == 'Planned' || $selectedWorkOrder->status == 'Requested to change planner group'))
+            ($selectedWorkOrder->status == 'Planned' ||
+                $selectedWorkOrder->status == 'Requested to change planner group' ||
+                $selectedWorkOrder->status == 'Requested to be closed'))
         <div wire:ignore.self class="modal fade" data-backdrop="static" id="progressModal" tabindex="-1"
             role="dialog">
             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -348,23 +367,35 @@
                                 <div class="form-group">
                                     <label class="strong">Task List</label>
                                     <br>
-                                    @if (!empty($activityLists))
-                                        @foreach ($activityLists as $task)
-                                            <div class="d-flex align-items-center mb-2">
-                                                <div class="custom-control custom-checkbox flex-grow-1">
-                                                    <input type="checkbox" class="custom-control-input"
-                                                        id="task{{ $task['id'] }}"
-                                                        @if ($task['is_done']) checked @endif disabled>
-                                                    <label class="custom-control-label"
-                                                        for="task{{ $task['id'] }}">
-                                                        {{ $task['task'] }}
-                                                    </label>
+                                    @php
+                                        $groupedTasks = collect($activityLists)->groupBy('planner_group_id');
+                                        $plannerGroupNames = [
+                                            1 => 'Elektrik',
+                                            2 => 'Mekanik',
+                                        ];
+                                    @endphp
+                                    @forelse ($groupedTasks as $plannerGroupId => $tasks)
+                                        <div class="mb-2 container">
+                                            <h6 class="font-weight-bold text-primary">
+                                                {{ $plannerGroupNames[$plannerGroupId] ?? 'Planner Group ' . $plannerGroupId }}
+                                            </h6>
+                                            @foreach ($tasks as $task)
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <div class="custom-control custom-checkbox flex-grow-1">
+                                                        <input type="checkbox" class="custom-control-input"
+                                                            id="task{{ $task['id'] }}"
+                                                            @if ($task['is_done']) checked @endif disabled>
+                                                        <label class="custom-control-label"
+                                                            for="task{{ $task['id'] }}">
+                                                            {{ $task['task'] }}
+                                                        </label>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        @endforeach
-                                    @else
+                                            @endforeach
+                                        </div>
+                                    @empty
                                         <p class="text-muted">No tasks added yet.</p>
-                                    @endif
+                                    @endforelse
                                 </div>
                             </div>
                         </div>

@@ -13,7 +13,7 @@
                             <div class="form-group">
                                 <label for="name">Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control @error('name') is-invalid @enderror"
-                                    id="name" wire:model="name" required>
+                                    id="name" wire:model="name" required placeholder="Input name">
                                 @error('name')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -23,7 +23,7 @@
                             <div class="form-group">
                                 <label for="nup">NUP <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control @error('nup') is-invalid @enderror"
-                                    id="nup" wire:model="nup" maxlength="20" required>
+                                    id="nup" wire:model="nup" maxlength="20" required placeholder="Input NUP">
                                 @error('nup')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -33,7 +33,7 @@
                             <div class="form-group">
                                 <label for="email">Email <span class="text-danger">*</span></label>
                                 <input type="email" class="form-control @error('email') is-invalid @enderror"
-                                    id="email" wire:model="email" required>
+                                    id="email" wire:model="email" required placeholder="Input email">
                                 @error('email')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -42,17 +42,16 @@
                             <!-- Department (Read Only) -->
                             <div class="form-group">
                                 <label for="department">Department</label>
-                                <input type="text" class="form-control" id="department" value="Department 1"
-                                    readonly>
-                                <small class="form-text text-muted">Team members are automatically assigned to
-                                    Department 1</small>
+                                <input type="text" class="form-control" id="department"
+                                    value="Department Maintenance" readonly>
                             </div>
 
                             <!-- Section -->
                             <div class="form-group">
                                 <label for="section">Section <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control @error('section') is-invalid @enderror"
-                                    id="section" wire:model="section" maxlength="15" required>
+                                    id="section" wire:model="section" maxlength="15" required
+                                    placeholder="Input section">
                                 @error('section')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -74,8 +73,8 @@
                             </div>
 
                             <!-- Submit Button -->
-                            <div class="form-group">
-                                <button type="submit" class="btn btn-primary btn-block">
+                            <div class="form-group text-right">
+                                <button type="submit" class="btn btn-primary btn-pill">
                                     <i class="fas fa-user-plus"></i> Register Team Member
                                 </button>
                             </div>
@@ -89,7 +88,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h4 class="card-title">Team Members List</h4>
-                        <small class="text-muted">All team members from Department 1</small>
+                        <small class="text-muted">All team members from Department Maintenance</small>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -100,11 +99,10 @@
                                         <th width="15%">Name</th>
                                         <th width="10%">NUP</th>
                                         <th width="15%">Email</th>
-                                        <th width="10%">Section</th>
+                                        <th width="10%">Manhours</th>
                                         <th width="12%">Planner Group</th>
                                         <th width="8%">Status</th>
-                                        <th width="10%">Rejected</th>
-                                        <th width="15%">Actions</th>
+                                        <th width="20%">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -113,78 +111,97 @@
                                             <td>{{ $index + 1 }}</td>
                                             <td>
                                                 <strong>{{ $member->name }}</strong>
-                                                @if ($member->is_default_password)
-                                                    <br><small class="badge badge-warning">Default Pass</small>
+                                                @if ($member->reject_reason)
+                                                    <br><small class="text-danger">Reason:
+                                                        {{ $member->reject_reason }}</small>
                                                 @endif
                                             </td>
                                             <td>{{ $member->nup }}</td>
                                             <td>{{ $member->email }}</td>
-                                            <td>{{ $member->section }}</td>
+                                            <td>
+                                                {{ $member->actualManhours->filter(function ($manhour) {
+                                                        return \Carbon\Carbon::parse($manhour->date)->isSameDay(\Carbon\Carbon::today());
+                                                    })->sum('actual_time') }}
+                                                minutes
+                                            </td>
                                             <td>{{ $member->plannerGroup->name ?? 'N/A' }}</td>
                                             <td>
-                                                @if ($member->status == 'pending')
-                                                    <span class="badge badge-warning">Pending</span>
-                                                @elseif($member->status == 'approved')
-                                                    <span class="badge badge-success">Approved</span>
-                                                @elseif($member->status == 'rejected')
-                                                    <span class="badge badge-danger">Rejected</span>
+                                                @if ($member->status == 'Pending')
+                                                    <span class="badge badge-warning">
+                                                        <i class="fas fa-clock"></i> Pending
+                                                    </span>
+                                                @elseif($member->status == 'Active')
+                                                    <span class="badge badge-success">
+                                                        <i class="fas fa-check-circle"></i> Active
+                                                    </span>
+                                                @elseif($member->status == 'Rejected')
+                                                    <span class="badge badge-danger">
+                                                        <i class="fas fa-times-circle"></i> Rejected
+                                                    </span>
                                                 @else
-                                                    <span
-                                                        class="badge badge-secondary">{{ ucfirst($member->status ?? 'Active') }}</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if ($member->is_rejected)
-                                                    <span class="badge badge-danger">Yes</span>
-                                                    @if ($member->reject_reason)
-                                                        <br><small class="text-muted"
-                                                            title="{{ $member->reject_reason }}">
-                                                            {{ Str::limit($member->reject_reason, 20) }}
-                                                        </small>
-                                                    @endif
-                                                @else
-                                                    <span class="badge badge-success">No</span>
+                                                    <span class="badge badge-secondary">
+                                                        {{ ucfirst($member->status ?? 'Unknown') }}
+                                                    </span>
                                                 @endif
                                             </td>
                                             <td>
                                                 @if ($canEditDelete)
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        @if ($member->status == 'pending')
+                                                        @if ($member->status == 'Pending')
                                                             <button
-                                                                onclick="confirmApprove({{ $member->id }}, '{{ $member->name }}')"
-                                                                class="btn btn-link btn-success" title="Approve">
+                                                                onclick="confirmApprove({{ $member->id }}, '{{ addslashes($member->name) }}')"
+                                                                class="btn btn-success btn-lg btn-link"
+                                                                title="Approve Member">
                                                                 <i class="fas fa-check"></i>
                                                             </button>
                                                             <button
-                                                                onclick="confirmReject({{ $member->id }}, '{{ $member->name }}')"
-                                                                class="btn btn-danger btn-link" title="Reject">
+                                                                onclick="showRejectInput({{ $member->id }}, '{{ addslashes($member->name) }}')"
+                                                                class="btn btn-danger btn-lg btn-link"
+                                                                title="Reject Member">
                                                                 <i class="fas fa-times"></i>
                                                             </button>
+                                                        @elseif($member->status == 'Rejected')
+                                                            <button
+                                                                onclick="confirmApprove({{ $member->id }}, '{{ addslashes($member->name) }}')"
+                                                                class="btn btn-success btn-lg btn-link"
+                                                                title="Approve Member">
+                                                                <i class="fas fa-check"></i> Re-approve
+                                                            </button>
                                                         @endif
+
                                                         <button wire:click="edit({{ $member->id }})"
-                                                            class="btn btn-link btn-warning" title="Edit">
+                                                            class="btn btn-warning btn-lg btn-link"
+                                                            title="Edit Member">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <button wire:click="resetPassword({{ $member->id }})"
-                                                            class="btn btn-link btn-info" title="Reset Password">
+
+                                                        <button
+                                                            onclick="confirmResetPassword({{ $member->id }}, '{{ addslashes($member->name) }}')"
+                                                            class="btn btn-info btn-lg btn-link"
+                                                            title="Reset Password">
                                                             <i class="fas fa-key"></i>
                                                         </button>
+
                                                         <button
-                                                            onclick="confirmDelete({{ $member->id }}, '{{ $member->name }}')"
-                                                            class="btn btn-link btn-danger" title="Delete">
+                                                            onclick="confirmDelete({{ $member->id }}, '{{ addslashes($member->name) }}')"
+                                                            class="btn btn-danger btn-lg btn-link"
+                                                            title="Delete Member">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
                                                     </div>
                                                 @else
-                                                    <span class="text-muted small">No Access</span>
+                                                    <span class="text-muted small">
+                                                        <i class="fas fa-lock"></i> No Access
+                                                    </span>
                                                 @endif
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted">
-                                                <i class="fas fa-users fa-2x mb-2"></i><br>
-                                                No team members found
+                                            <td colspan="8" class="text-center text-muted py-4">
+                                                <i class="fas fa-users fa-3x mb-3"></i><br>
+                                                <h5>No team members found</h5>
+                                                <p>Start by registering your first team member.</p>
                                             </td>
                                         </tr>
                                     @endforelse
@@ -277,17 +294,18 @@
                                 <!-- Department (Read Only) -->
                                 <div class="form-group">
                                     <label>Department</label>
-                                    <input type="text" class="form-control" value="Department 1" readonly>
+                                    <input type="text" class="form-control" value="Department Maintenance"
+                                        readonly>
                                     <small class="form-text text-muted">Department cannot be changed</small>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" wire:click="closeEditModal">
+                        <button type="button" class="btn btn-secondary btn-pill" wire:click="closeEditModal">
                             <i class="fas fa-times"></i> Close
                         </button>
-                        <button type="button" class="btn btn-primary" wire:click="confirmUpdateUser">
+                        <button type="button" class="btn btn-primary btn-pill" wire:click="confirmUpdateUser">
                             <i class="fas fa-save"></i> Update Team Member
                         </button>
                     </div>
@@ -304,16 +322,22 @@
 
             .badge {
                 font-size: 0.75rem;
-                padding: 0.25rem 0.5rem;
+                padding: 0.35rem 0.65rem;
+                border-radius: 0.5rem;
             }
 
-            .btn-group-vertical .btn {
+            .badge i {
+                margin-right: 0.25rem;
+            }
+
+            .btn-group .btn {
                 border-radius: 0.25rem !important;
+                margin-right: 2px;
                 margin-bottom: 2px;
             }
 
-            .btn-group-vertical .btn:last-child {
-                margin-bottom: 0;
+            .btn-group .btn:last-child {
+                margin-right: 0;
             }
 
             .table td {
@@ -322,6 +346,9 @@
 
             .table th {
                 border-top: none;
+                background-color: #f8f9fa;
+                color: #495057;
+                font-weight: 600;
             }
 
             .card-header {
@@ -344,10 +371,76 @@
                 border-color: #004085;
             }
 
-            .thead-dark th {
-                background-color: #343a40;
-                border-color: #454d55;
-                color: #fff;
+            .btn-success {
+                background-color: #28a745;
+                border-color: #28a745;
+            }
+
+            .btn-success:hover {
+                background-color: #1e7e34;
+                border-color: #1c7430;
+            }
+
+            .btn-danger {
+                background-color: #dc3545;
+                border-color: #dc3545;
+            }
+
+            .btn-danger:hover {
+                background-color: #c82333;
+                border-color: #bd2130;
+            }
+
+            .btn-warning {
+                background-color: #ffc107;
+                border-color: #ffc107;
+                color: #212529;
+            }
+
+            .btn-warning:hover {
+                background-color: #e0a800;
+                border-color: #d39e00;
+                color: #212529;
+            }
+
+            .btn-info {
+                background-color: #17a2b8;
+                border-color: #17a2b8;
+            }
+
+            .btn-info:hover {
+                background-color: #117a8b;
+                border-color: #10707f;
+            }
+
+            .btn-pill {
+                border-radius: 2rem;
+            }
+
+            .text-danger {
+                color: #dc3545 !important;
+            }
+
+            .invalid-feedback {
+                width: 100%;
+                margin-top: 0.25rem;
+                font-size: 0.875rem;
+                color: #dc3545;
+            }
+
+            .is-invalid {
+                border-color: #dc3545;
+            }
+
+            .table-hover tbody tr:hover {
+                background-color: rgba(0, 0, 0, 0.075);
+            }
+
+            .btn-sm {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+                line-height: 1.5;
+                border-radius: 0.2rem;
             }
         </style>
     @endpush
@@ -357,7 +450,125 @@
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
+            // Global Functions - Define them first
+            function confirmDelete(userId, userName) {
+                Swal.fire({
+                    title: 'Delete Team Member?',
+                    text: `Are you sure you want to delete ${userName}? This action cannot be undone.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Yes, Delete!',
+                    cancelButtonText: 'Cancel',
+                    cancelButtonColor: '#6c757d',
+                    customClass: {
+                        confirmButton: 'btn-pill',
+                        cancelButton: 'btn-pill'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        @this.delete(userId);
+                    }
+                });
+            }
+
+            function confirmApprove(userId, userName) {
+                Swal.fire({
+                    title: 'Approve Team Member?',
+                    text: `Are you sure you want to approve ${userName}? They will become active members.`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    confirmButtonText: 'Yes, Approve!',
+                    cancelButtonText: 'Cancel',
+                    cancelButtonColor: '#6c757d',
+                    customClass: {
+                        confirmButton: 'btn-pill',
+                        cancelButton: 'btn-pill'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        @this.approve(userId);
+                    }
+                });
+            }
+
+            function showRejectInput(userId, userName) {
+                Swal.fire({
+                    title: `Reject ${userName}`,
+                    text: 'Please provide a reason for rejection:',
+                    icon: 'warning',
+                    input: 'textarea',
+                    inputPlaceholder: 'Enter rejection reason...',
+                    inputAttributes: {
+                        'aria-label': 'Rejection reason',
+                        'maxlength': '255',
+                        'rows': '4'
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'Continue',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonText: 'Cancel',
+                    cancelButtonColor: '#6c757d',
+                    customClass: {
+                        confirmButton: 'btn-pill',
+                        cancelButton: 'btn-pill'
+                    },
+                    inputValidator: (value) => {
+                        if (!value || value.trim() === '') {
+                            return 'You need to provide a reason for rejection!'
+                        }
+                        if (value.length > 255) {
+                            return 'Reason must be less than 255 characters!'
+                        }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Show final confirmation with reason
+                        Swal.fire({
+                            title: 'Confirm Rejection',
+                            html: `Are you sure you want to reject <strong>${userName}</strong>?<br><br><small class="text-muted">Reason: "${result.value}"</small>`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, Reject!',
+                            confirmButtonColor: '#dc3545',
+                            cancelButtonText: 'Cancel',
+                            cancelButtonColor: '#6c757d',
+                            customClass: {
+                                confirmButton: 'btn-pill',
+                                cancelButton: 'btn-pill'
+                            }
+                        }).then((confirmResult) => {
+                            if (confirmResult.isConfirmed) {
+                                @this.reject(userId, result.value);
+                            }
+                        });
+                    }
+                });
+            }
+
+            function confirmResetPassword(userId, userName) {
+                Swal.fire({
+                    title: 'Reset Password?',
+                    html: `Are you sure you want to reset password for <strong>${userName}</strong>?<br><br><small class="text-warning">The password will be reset to their NUP.</small>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#17a2b8',
+                    confirmButtonText: 'Yes, Reset!',
+                    cancelButtonText: 'Cancel',
+                    cancelButtonColor: '#6c757d',
+                    customClass: {
+                        confirmButton: 'btn-pill',
+                        cancelButton: 'btn-pill'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        @this.resetPassword(userId);
+                    }
+                });
+            }
+
+            document.addEventListener('livewire:initialized', function() {
                 // Initialize DataTable
                 let table;
 
@@ -365,8 +576,6 @@
                     if ($.fn.DataTable.isDataTable('#teamMembersTable')) {
                         $('#teamMembersTable').DataTable().destroy();
                     }
-
-                    // Use your existing DataTable setup
                     $('#teamMembersTable').DataTable();
                 }
 
@@ -385,8 +594,9 @@
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
                         confirmButtonText: 'OK',
-                        timer: 3000,
-                        timerProgressBar: true
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
                     });
                     setTimeout(initDataTable, 500);
                 });
@@ -397,8 +607,9 @@
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
                         confirmButtonText: 'OK',
-                        timer: 3000,
-                        timerProgressBar: true
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
                     });
                     setTimeout(initDataTable, 500);
                 });
@@ -409,8 +620,9 @@
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
                         confirmButtonText: 'OK',
-                        timer: 3000,
-                        timerProgressBar: true
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
                     });
                     setTimeout(initDataTable, 500);
                 });
@@ -421,8 +633,9 @@
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
                         confirmButtonText: 'OK',
-                        timer: 3000,
-                        timerProgressBar: true
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
                     });
                 });
 
@@ -431,7 +644,10 @@
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK'
+                        confirmButtonText: 'OK',
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
                     });
                 });
 
@@ -444,110 +660,141 @@
                         confirmButtonText: 'Yes, Update!',
                         confirmButtonColor: '#007bff',
                         cancelButtonText: 'Cancel',
-                        cancelButtonColor: '#6c757d'
+                        cancelButtonColor: '#6c757d',
+                        customClass: {
+                            confirmButton: 'btn-pill',
+                            cancelButton: 'btn-pill'
+                        }
                     }).then((result) => {
                         if (result.isConfirmed) {
                             @this.updateUser();
                         }
                     });
                 });
+
+                window.addEventListener('teamMemberApproved', function(event) {
+                    Swal.fire({
+                        title: event.detail[0].title,
+                        text: event.detail[0].message,
+                        icon: event.detail[0].icon,
+                        confirmButtonText: 'OK',
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
+                    });
+                    setTimeout(initDataTable, 500);
+                });
+
+                window.addEventListener('teamMemberRejected', function(event) {
+                    Swal.fire({
+                        title: event.detail[0].title,
+                        text: event.detail[0].message,
+                        icon: event.detail[0].icon,
+                        confirmButtonText: 'OK',
+                        customClass: {
+                            confirmButton: 'btn-pill'
+                        }
+                    });
+                    setTimeout(initDataTable, 500);
+                });
+
+                window.addEventListener('confirmRegister', function() {
+                    Swal.fire({
+                        title: 'Register Team Member?',
+                        text: 'Are you sure you want to register this team member? They will be pending for approval.',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#007bff',
+                        confirmButtonText: 'Yes, Register!',
+                        cancelButtonText: 'Cancel',
+                        cancelButtonColor: '#6c757d',
+                        customClass: {
+                            confirmButton: 'btn-pill',
+                            cancelButton: 'btn-pill'
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            @this.register();
+                        }
+                    });
+                });
+
+                window.addEventListener('showRejectInput', function(event) {
+                    const userId = event.detail.userId;
+
+                    Swal.fire({
+                        title: 'Reject Team Member',
+                        text: 'Please provide a reason for rejection:',
+                        icon: 'warning',
+                        input: 'textarea',
+                        inputPlaceholder: 'Enter rejection reason...',
+                        inputAttributes: {
+                            'aria-label': 'Rejection reason',
+                            'maxlength': '255'
+                        },
+                        showCancelButton: true,
+                        confirmButtonText: 'Reject',
+                        confirmButtonColor: '#dc3545',
+                        cancelButtonText: 'Cancel',
+                        cancelButtonColor: '#6c757d',
+                        customClass: {
+                            confirmButton: 'btn-pill',
+                            cancelButton: 'btn-pill'
+                        },
+                        inputValidator: (value) => {
+                            if (!value || value.trim() === '') {
+                                return 'You need to provide a reason for rejection!'
+                            }
+                            if (value.length > 255) {
+                                return 'Reason must be less than 255 characters!'
+                            }
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Show final confirmation
+                            Swal.fire({
+                                title: 'Confirm Rejection',
+                                text: 'Are you sure you want to reject this team member?',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Yes, Reject!',
+                                confirmButtonColor: '#dc3545',
+                                cancelButtonText: 'Cancel',
+                                cancelButtonColor: '#6c757d',
+                                customClass: {
+                                    confirmButton: 'btn-pill',
+                                    cancelButton: 'btn-pill'
+                                }
+                            }).then((confirmResult) => {
+                                if (confirmResult.isConfirmed) {
+                                    @this.reject(userId, result.value);
+                                }
+                            });
+                        }
+                    });
+                });
+            }, {
+                once: true
             });
 
-            function confirmDelete(userId, userName) {
-                Swal.fire({
-                    title: 'Delete Team Member?',
-                    text: `Are you sure you want to delete ${userName}? This action cannot be undone.`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    confirmButtonText: 'Yes, Delete!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        @this.delete(userId);
+            document.addEventListener('livewire:navigated', function() {
+                // Initialize DataTable for navigation
+                let table;
+
+                function initDataTable() {
+                    if ($.fn.DataTable.isDataTable('#teamMembersTable')) {
+                        $('#teamMembersTable').DataTable().destroy();
                     }
-                });
-            }
+                    $('#teamMembersTable').DataTable();
+                }
 
-            // Tambahkan function ini di dalam script
-            function confirmApprove(userId, userName) {
-                Swal.fire({
-                    title: 'Approve Team Member?',
-                    text: `Are you sure you want to approve ${userName}?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    confirmButtonText: 'Yes, Approve!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        @this.approve(userId);
-                    }
-                });
-            }
+                initDataTable();
 
-            // Tambahkan event listener ini setelah event listener yang sudah ada
-            window.addEventListener('teamMemberApproved', function(event) {
-                Swal.fire({
-                    title: event.detail[0].title,
-                    text: event.detail[0].message,
-                    icon: event.detail[0].icon,
-                    confirmButtonText: 'OK',
-                    timer: 3000,
-                    timerProgressBar: true
+                document.addEventListener('livewire:updated', function() {
+                    setTimeout(initDataTable, 100);
                 });
-                setTimeout(initDataTable, 500);
-            });
-
-            // Tambahkan function ini di dalam script
-            function confirmReject(userId, userName) {
-                Swal.fire({
-                    title: 'Reject Team Member?',
-                    text: `Are you sure you want to reject ${userName}?`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    confirmButtonText: 'Yes, Reject!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        @this.reject(userId);
-                    }
-                });
-            }
-
-            // Event listener untuk rejected
-            window.addEventListener('teamMemberRejected', function(event) {
-                Swal.fire({
-                    title: event.detail[0].title,
-                    text: event.detail[0].message,
-                    icon: event.detail[0].icon,
-                    confirmButtonText: 'OK',
-                    timer: 3000,
-                    timerProgressBar: true
-                });
-                setTimeout(initDataTable, 500);
-            });
-
-            // Tambahkan event listener ini di dalam script
-            window.addEventListener('confirmRegister', function() {
-                Swal.fire({
-                    title: 'Register Team Member?',
-                    text: 'Are you sure you want to register this team member? They will be pending for approval.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#007bff',
-                    confirmButtonText: 'Yes, Register!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        @this.register();
-                    }
-                });
+            }, {
+                once: true
             });
         </script>
     @endpush

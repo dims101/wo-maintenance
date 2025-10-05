@@ -12,6 +12,7 @@ class SparepartList extends Model
 
     protected $fillable = [
         'wo_id',
+        'pm_id',
         'barcode',
         'qty',
         'uom',
@@ -42,5 +43,11 @@ class SparepartList extends Model
     public function plannerGroup()
     {
         return $this->belongsTo(PlannerGroup::class, 'planner_group_id');
+    }
+
+    // Relasi ke PreventiveMaintenance
+    public function preventiveMaintenance()
+    {
+        return $this->belongsTo(PreventiveMaintenance::class, 'pm_id');
     }
 }

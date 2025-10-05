@@ -50,38 +50,44 @@
                 </li>
                 <li class="nav-item {{ request()->routeIs('work-order.create') ? 'active' : '' }}">
                     <a href="{{ route('work-order.create') }}" wire:navigate>
-                        <i class="fas fa-plus"></i>
+                        <i class="fas fa-plus-circle"></i>
                         <p>Create SPK</p>
                     </a>
                 </li>
                 <li class="nav-item {{ request()->routeIs('work-order') ? 'active' : '' }}">
                     <a href="{{ route('work-order') }}" wire:navigate>
-                        <i class="fas fa-plus"></i>
+                        <i class="fas fa-desktop"></i>
                         <p>Monitoring SPK</p>
                     </a>
                 </li>
                 <li class="nav-item {{ request()->routeIs('work-order.spv-approval') ? 'active' : '' }}">
                     <a href="{{ route('work-order.spv-approval') }}" wire:navigate>
-                        <i class="fas fa-plus"></i>
+                        <i class="fas fa-clipboard-check"></i>
                         <p>SPK For Approval User</p>
                     </a>
                 </li>
                 <li class="nav-item {{ request()->routeIs('work-order.assigned') ? 'active' : '' }}">
                     <a href="{{ route('work-order.assigned') }}" wire:navigate>
-                        <i class="fas fa-file"></i>
+                        <i class="fas fa-tasks"></i>
                         <p>List SPK Assigned</p>
                     </a>
                 </li>
                 <li class="nav-item {{ request()->routeIs('sparepart.order') ? 'active' : '' }}">
                     <a href="{{ route('sparepart.order') }}" wire:navigate>
-                        <i class="fas fa-file"></i>
+                        <i class="fas fa-cogs"></i>
                         <p>List of Sparepart Order</p>
                     </a>
                 </li>
                 <li class="nav-item {{ request()->routeIs('register.team') ? 'active' : '' }}">
                     <a href="{{ route('register.team') }}" wire:navigate>
-                        <i class="fas fa-file"></i>
+                        <i class="fas fa-users"></i>
                         <p>List of Registered Member</p>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('pm') ? 'active' : '' }}">
+                    <a href="{{ route('pm') }}" wire:navigate>
+                        <i class="fas fa-wrench"></i>
+                        <p>Preventive Maintenance</p>
                     </a>
                 </li>
             </ul>

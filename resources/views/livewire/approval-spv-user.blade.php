@@ -118,6 +118,16 @@
                                                             class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
                                                     @break
 
+                                                    @case('Need Revision')
+                                                        <span
+                                                            class="badge badge-primary">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
+                                                    @case('Close')
+                                                        <span
+                                                            class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
                                                     @default
                                                         <span
                                                             class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
@@ -301,10 +311,10 @@
                                         readonly>
                                 </div>
 
-                                @if ($selectedWorkOrder->is_spv_rejected)
+                                @if ($selectedWorkOrder->revision_note)
                                     <div class="form-group">
-                                        <label class="strong">Reject Reason</label>
-                                        <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->spv_reject_reason }}</textarea>
+                                        <label class="strong">Revision notes</label>
+                                        <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->revision_note }}</textarea>
                                     </div>
                                 @endif
                             </div>
@@ -341,13 +351,19 @@
                                 wire:click='openPopupModal("rejectChange","spvMaintenance")'>Reject</button>
                             <button class="btn btn-success btn-pill" data-toggle="modal"
                                 data-target="#approvalMaintenance">Approve</button>
+                        @elseif ($selectedWorkOrder->status == 'Requested to be closed' && !$selectedWorkOrder->is_spv_rejected)
+                            <button type="button" class="btn btn-primary btn-pill" data-toggle="modal"
+                                data-target="#popupModal"
+                                wire:click='openPopupModal("needRevision","spvMaintenance")'>Need Revision</button>
+                            <button class="btn btn-success btn-pill" wire:click='confirmApproveClose'>Approve to
+                                close</button>
                         @endif
                     </div>
                 </div>
             </div>
         </div>
     @endif
-
+    {{-- Approve Modal --}}
     @if ($selectedWorkOrder)
         <div wire:ignore.self class="modal fade" data-backdrop="static" id="approvalMaintenance" tabindex="-1"
             role="dialog">
@@ -444,7 +460,8 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <label class="strong">Order Type <span class="text-danger">*</span></label>
                                     </div>
-                                    <select class="custom-select" wire:model.live="selectedOrderType">
+                                    <select class="custom-select" wire:model.live="selectedOrderType"
+                                        {{ $isPgComplete == true ? 'disabled' : '' }}>
                                         <option value="">Select Order Type</option>
                                         @foreach ($orderTypes as $orderType)
                                             <option value="{{ $orderType->id }}">
@@ -458,7 +475,8 @@
                                     <label class="strong">Maintenance Activity Type <span
                                             class="text-danger">*</span></label>
                                     <select class="custom-select" wire:model="selectedMat"
-                                        {{ !$selectedOrderType ? 'disabled' : '' }}>
+                                        {{ !$selectedOrderType ? 'disabled' : '' }}
+                                        {{ $isPgComplete == true ? 'disabled' : '' }}>
                                         <option value="">Select MAT</option>
                                         @foreach ($mats as $mat)
                                             <option value="{{ $mat->id }}">{{ $mat->name }}</option>
@@ -473,7 +491,8 @@
                                             <label class="strong">Start Date Time <span
                                                     class="text-danger">*</span></label>
                                             <input type="datetime-local" class="form-control"
-                                                wire:model="startDateTime">
+                                                wire:model="startDateTime"
+                                                {{ $isPgComplete == true ? 'readonly' : '' }}>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -482,7 +501,8 @@
                                             <label class="strong">Finish Date Time <span
                                                     class="text-danger">*</span></label>
                                             <input type="datetime-local" class="form-control"
-                                                wire:model="finishDateTime">
+                                                wire:model="finishDateTime"
+                                                {{ $isPgComplete == true ? 'readonly' : '' }}>
                                         </div>
                                     </div>
                                 </div>
@@ -543,6 +563,12 @@
                             @elseif($popupModalAction == 'rejectChange')
                                 <button type="button" wire:click="confirmRejectChange"
                                     class="btn btn-pill btn-danger">Reject</button>
+                            @elseif($popupModalAction == 'needRevision')
+                                <button type="button" wire:click="confirmNeedRevision"
+                                    class="btn btn-pill btn-primary">Submit Revision</button>
+                            @elseif($popupModalAction == 'approveClose')
+                                <button type="button" wire:click="confirmApproveClose"
+                                    class="btn btn-pill btn-success">Approve Close</button>
                             @endif
                         @endif
                     </div>
@@ -864,6 +890,73 @@
                 });
             });
 
+            Livewire.on('confirmNeedRevision', () => {
+                if (!@this.reason || @this.reason.trim() === '') {
+                    swal({
+                        title: "Error!",
+                        text: "Please provide rejection reason before proceeding.",
+                        icon: "error",
+                        button: "OK",
+                    });
+                    return;
+                }
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to submit revision. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-primary"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.needRevision();
+                    }
+                });
+            });
+
+            Livewire.on('confirmApproveClose', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to close this SPK. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Close",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.approveClose();
+                    }
+                });
+            });
+
             // Prevent accidental modal closing
             $('#detailModal').on('hide.bs.modal', function(e) {
                 if (e.target !== this) return false;
@@ -1131,6 +1224,73 @@
                 }).then((result) => {
                     if (result) {
                         @this.approveChange();
+                    }
+                });
+            });
+
+            Livewire.on('confirmNeedRevision', () => {
+                if (!@this.reason || @this.reason.trim() === '') {
+                    swal({
+                        title: "Error!",
+                        text: "Please provide rejection reason before proceeding.",
+                        icon: "error",
+                        button: "OK",
+                    });
+                    return;
+                }
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to submit revision. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-primary"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.needRevision();
+                    }
+                });
+            });
+
+            Livewire.on('confirmApproveClose', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to close this SPK. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill"
+                        },
+                        confirm: {
+                            text: "Yes, Close",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success"
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.approveClose();
                     }
                 });
             });

@@ -4,10 +4,12 @@ namespace App\Livewire;
 
 use App\Mail\SendGeneralMail;
 use App\Models\ActivityList;
+use App\Models\ActualManhour;
 use App\Models\MaintenanceApproval;
 use App\Models\Order;
 use App\Models\Sparepart;
 use App\Models\SparepartList;
+use App\Models\TeamAssignment;
 use App\Models\User;
 use App\Models\WoPlannerGroup;
 use App\Models\WorkOrder;
@@ -36,6 +38,10 @@ class AssignedSpk extends Component
 
     public $newTask = '';
 
+    public $activeSessionUser = null; // Track user yang sedang running
+
+    public $startTime = null; // Untuk tampilan durasi
+
     public $activityLists = [];
 
     public $editingTaskId = null;
@@ -56,6 +62,150 @@ class AssignedSpk extends Component
     {
         $this->loadDropdownData();
         $this->sparepartItems = [['sparepart_id' => '', 'quantity' => '']];
+        $this->checkActiveSession();
+    }
+
+    public function checkActiveSession()
+    {
+        // Cek apakah user sedang punya session aktif di WO MANAPUN
+        $this->activeSessionUser = ActualManhour::where('user_id', auth()->user()->id)
+            ->whereNull('stop_job')
+            ->first();
+
+        if ($this->activeSessionUser) {
+            $this->startTime = $this->activeSessionUser->start_job;
+        }
+    }
+
+    public function isUserAssignedToTeam($workOrderId)
+    {
+        $approval = MaintenanceApproval::where('wo_id', $workOrderId)->first();
+
+        if (! $approval) {
+            return false;
+        }
+
+        return TeamAssignment::where('approval_id', $approval->id)
+            ->where('user_id', auth()->user()->id)
+            ->exists();
+    }
+
+    public function confirmStart($workOrderId)
+    {
+        // Validasi user harus di-assign ke team
+        if (! $this->isUserAssignedToTeam($workOrderId)) {
+            session()->flash('error', 'You are not assigned to this work order team.');
+
+            return;
+        }
+
+        // Validasi user tidak boleh punya active session di WO manapun
+        $activeSession = ActualManhour::where('user_id', auth()->user()->id)
+            ->whereNull('stop_job')
+            ->first();
+
+        if ($activeSession) {
+            $activeWO = WorkOrder::find($activeSession->wo_id);
+            session()->flash('error', 'You have an active session on Work Order: '.$activeWO->notification_number.'. Please stop it first.');
+
+            return;
+        }
+
+        $this->selectedWorkOrderId = $workOrderId;
+        $this->dispatch('confirmStartManhour');
+    }
+
+    public function startManhour()
+    {
+        try {
+            DB::beginTransaction();
+
+            ActualManhour::create([
+                'user_id' => auth()->user()->id,
+                'wo_id' => $this->selectedWorkOrderId,
+                'start_job' => now(),
+                // shift dan date akan diset otomatis oleh mutator
+            ]);
+
+            DB::commit();
+
+            $this->checkActiveSession();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Work session started successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to start work session: '.$e->getMessage());
+        }
+    }
+
+    public function confirmStop()
+    {
+        if (! $this->activeSessionUser) {
+            session()->flash('error', 'No active session found.');
+
+            return;
+        }
+
+        $this->dispatch('confirmStopManhour');
+    }
+
+    public function stopManhour()
+    {
+        try {
+            DB::beginTransaction();
+
+            $session = ActualManhour::where('user_id', auth()->user()->id)
+                ->whereNull('stop_job')
+                ->where('wo_id', $this->activeSessionUser->wo_id)
+                ->first();
+
+            if (! $session) {
+                session()->flash('error', 'No active session found.');
+
+                return;
+            }
+
+            $session->update([
+                'stop_job' => now(),
+                // actual_time akan dihitung otomatis oleh mutator
+            ]);
+
+            DB::commit();
+
+            $this->activeSessionUser = null;
+            $this->startTime = null;
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Work session stopped successfully. Duration: '.$this->formatDuration($session->actual_time).'.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to stop work session: '.$e->getMessage());
+        }
+    }
+
+    public function formatDuration($minutes)
+    {
+        $hours = floor($minutes / 60);
+        $mins = $minutes % 60;
+
+        return $hours.' hour(s) '.$mins.' minute(s)';
+    }
+
+    public function getActiveDuration()
+    {
+        if (! $this->startTime) {
+            return '';
+        }
+
+        $start = \Carbon\Carbon::parse($this->startTime);
+        $now = \Carbon\Carbon::now();
+
+        $diffInMinutes = $start->diffInMinutes($now);
+        $hours = floor($diffInMinutes / 60);
+        $minutes = $diffInMinutes % 60;
+
+        return "{$hours}h {$minutes}m";
     }
 
     public function loadDropdownData()
@@ -228,6 +378,7 @@ class AssignedSpk extends Component
             'approval_id' => $approval->id,
             'task' => trim($this->newTask),
             'is_done' => false,
+            'planner_group_id' => $this->selectedWorkOrder->planner_group_id,
         ]);
 
         $this->newTask = '';
@@ -345,6 +496,7 @@ class AssignedSpk extends Component
 
         $this->loadActivityLists();
         $this->loadSparepartItems();
+        $this->checkActiveSession();
         $this->dispatch('showDetailModal');
     }
 
@@ -492,7 +644,8 @@ class AssignedSpk extends Component
     {
         $query = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
             ->where('is_spv_rejected', 'false')
-            ->where('status', 'Planned');
+            ->where('status', 'Planned')
+            ->orWhere('status', 'Need Revision');
 
         if ($this->search) {
             $query->where(function ($q) {

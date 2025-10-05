@@ -1,4 +1,3 @@
-{{-- <x-slot:subTitile> {{ $subTitle }} </x-slot> --}}
 <div>
     <div class="row">
         <div class="col-md-12">
@@ -58,71 +57,45 @@
                             <thead class="thead-light">
                                 <tr>
                                     <th>Action</th>
-                                    <th>Status</th>
+                                    <th>Order</th>
                                     <th>Notification Number</th>
+                                    <th>Description</th>
+                                    <th>Basic Start Date</th>
+                                    <th>User Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @if ($workOrders && $workOrders->count() > 0)
-                                    @foreach ($workOrders as $workOrder)
+                                @if ($preventiveMaintenances && $preventiveMaintenances->count() > 0)
+                                    @foreach ($preventiveMaintenances as $pm)
                                         <tr>
                                             <td>
                                                 <div class="btn-group" role="group">
                                                     <button type="button" class="btn btn-link btn-lg btn-info"
                                                         title="View Details"
-                                                        wire:click="openDetailModal({{ $workOrder->id }})">
+                                                        wire:click="openDetailModal({{ $pm->id }})">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
                                                 </div>
                                             </td>
-                                            <td>
-                                                @switch($workOrder->status)
-                                                    @case('Waiting for SPV Approval')
-                                                        <span
-                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Planned')
-                                                        <span
-                                                            class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Waiting for Maintenance Approval')
-                                                        <span
-                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Rejected by Maintenance')
-                                                        <span
-                                                            class="badge badge-danger">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Received by Maintenance')
-                                                        <span
-                                                            class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Need Revision')
-                                                        <span
-                                                            class="badge badge-primary">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @default
-                                                        <span
-                                                            class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                @endswitch
+                                            <td>{{ $pm->order }}</td>
+                                            <td>{{ $pm->notification_number }}</td>
+                                            <td>{{ $pm->description }}</td>
+                                            <td>{{ $pm->basic_start_date ? $pm->basic_start_date->format('d-m-Y') : '-' }}
                                             </td>
                                             <td>
-                                                {{ $workOrder->notification_number }}
+                                                <span
+                                                    class="badge {{ $pm->user_status == 'R1' ? 'badge-warning' : 'badge-secondary' }}">
+                                                    {{ $pm->user_status ?? 'Not Set' }}
+                                                </span>
                                             </td>
                                         </tr>
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="3" class="text-center">
+                                        <td colspan="6" class="text-center">
                                             <div class="py-4">
                                                 <i class="fas fa-search fa-2x text-muted mb-3"></i>
-                                                <p class="text-muted">No work orders found</p>
+                                                <p class="text-muted">No preventive maintenance found</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -132,19 +105,20 @@
                     </div>
 
                     <!-- Pagination -->
-                    @if ($workOrders->hasPages())
+                    @if ($preventiveMaintenances->hasPages())
                         <div class="row mt-3">
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center">
                                     <span class="text-muted">
-                                        Showing {{ $workOrders->firstItem() }} to {{ $workOrders->lastItem() }} of
-                                        {{ $workOrders->total() }} entries
+                                        Showing {{ $preventiveMaintenances->firstItem() }} to
+                                        {{ $preventiveMaintenances->lastItem() }} of
+                                        {{ $preventiveMaintenances->total() }} entries
                                     </span>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="d-flex justify-content-end">
-                                    {{ $workOrders->links() }}
+                                    {{ $preventiveMaintenances->links() }}
                                 </div>
                             </div>
                         </div>
@@ -154,13 +128,13 @@
         </div>
     </div>
 
-    <!-- Single Detail Modal -->
-    @if ($selectedWorkOrder)
+    <!-- Detail Modal -->
+    @if ($selectedPm)
         <div wire:ignore.self class="modal fade" id="detailModal" tabindex="-1" role="dialog">
             <div class="modal-dialog modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header bg-primary">
-                        <h5 class="modal-title">Assign Approval - {{ $selectedWorkOrder->notification_number }}</h5>
+                        <h5 class="modal-title">Preventive Maintenance - {{ $selectedPm->order }}</h5>
                         <button type="button" class="close text-white" data-dismiss="modal" wire:click="closeModal">
                             <span>&times;</span>
                         </button>
@@ -170,147 +144,150 @@
                             <!-- Left Column -->
                             <div class="col-md-6">
                                 <div class="form-group">
+                                    <label class="strong">Order</label>
+                                    <input type="text" class="form-control" value="{{ $selectedPm->order }}"
+                                        readonly>
+                                </div>
+
+                                <div class="form-group">
                                     <label class="strong">Notification Number</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->notification_number }}" readonly>
+                                        value="{{ $selectedPm->notification_number }}" readonly>
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="strong">Urgent Level</label>
+                                    <label class="strong">Main Work Center</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->urgent_level }}" readonly>
+                                        value="{{ $selectedPm->main_workctr ?? '-' }}" readonly>
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="strong">Requester Name</label>
+                                    <label class="strong">Description</label>
+                                    <textarea class="form-control" rows="3" readonly>{{ $selectedPm->description ?? '-' }}</textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">System Status</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->user->name ?? '-' }}" readonly>
+                                        value="{{ $selectedPm->system_status ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Basic Start Date</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->basic_start_date ? $selectedPm->basic_start_date->format('d-m-Y') : '-' }}"
+                                        readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Start Time</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->start_time ? $selectedPm->start_time->format('H:i') : '-' }}"
+                                        readonly>
                                 </div>
 
                                 <div class="form-group">
                                     <label class="strong">Functional Location</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->equipment->functionalLocation->name ?? '-' }}"
-                                        readonly>
+                                        value="{{ $selectedPm->functional_location ?? '-' }}" readonly>
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="strong">Malfunction Start</label>
+                                    <label class="strong">FL Description</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->malfunction_start ? $selectedWorkOrder->malfunction_start->format('d-m-Y - H:i') : '-' }}"
-                                        readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Priority</label>
-                                    <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->priority ?? '-' }}" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Equipment</label>
-                                    <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->equipment->name ?? '-' }}" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Notes</label>
-                                    <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->notes ?? '-' }}</textarea>
+                                        value="{{ $selectedPm->fl_desc ?? '-' }}" readonly>
                                 </div>
                             </div>
 
                             <!-- Right Column -->
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label class="strong">Notification Date</label>
+                                    <label class="strong">Plan Total Cost</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->notification_date ? $selectedWorkOrder->notification_date->format('d-m-Y - H:i') : '-' }}"
+                                        value="{{ $selectedPm->plan_total_cost ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Actual Total Cost</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->actual_total_cost ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Actual Start Date</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->actual_start_date ? $selectedPm->actual_start_date->format('d-m-Y') : '-' }}"
                                         readonly>
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="strong">Department Requester</label>
+                                    <label class="strong">Actual Start Time</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->department->name ?? '-' }}" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Planner Group</label>
-                                    <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->plannerGroup->name ?? '-' }}" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Plant</label>
-                                    <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->equipment->functionalLocation->resource->plant->name ?? '-' }}"
+                                        value="{{ $selectedPm->actual_start_time ? $selectedPm->actual_start_time->format('H:i') : '-' }}"
                                         readonly>
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="strong">Work Description</label>
-                                    <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->work_desc ?? '-' }}</textarea>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Is Breakdown</label>
+                                    <label class="strong">Actual Finish</label>
                                     <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->is_breakdown ? 'Yes' : 'No' }}" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="strong">Resource</label>
-                                    <input type="text" class="form-control"
-                                        value="{{ $selectedWorkOrder->equipment->functionalLocation->resource->name ?? '-' }}"
+                                        value="{{ $selectedPm->actual_finish ? $selectedPm->actual_finish->format('d-m-Y H:i') : '-' }}"
                                         readonly>
                                 </div>
-                                @if ($selectedWorkOrder->revision_note)
-                                    <div class="form-group">
-                                        <label class="strong">Revision notes</label>
-                                        <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->revision_note }}</textarea>
-                                    </div>
-                                @endif
+
+                                <div class="form-group">
+                                    <label class="strong">Entered By</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->entered_by ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Order Type</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->order_type ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">User Status</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->user_status ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Equipment</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->equipment ?? '-' }}" readonly>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Equipment Description</label>
+                                    <input type="text" class="form-control"
+                                        value="{{ $selectedPm->eq_desc ?? '-' }}" readonly>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
-                        <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                            data-target="#sparepartModal">Sparepart reservation</button>
-                        <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
-                            data-target="#progressModal">Update
-                            progress</button>
-                        <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
-                            data-target="#closeModal">Request to
-                            close</button>
-                        {{-- START/STOP BUTTONS - Hanya muncul jika status = Planned dan user di-assign --}}
-                        @if ($selectedWorkOrder->status === 'Planned' && $this->isUserAssignedToTeam($selectedWorkOrder->id))
-                            @if ($activeSessionUser)
-                                @if ($activeSessionUser->wo_id == $selectedWorkOrder->id)
-                                    {{-- Tombol STOP jika sedang running untuk WO INI --}}
-                                    <button type="button" class="btn btn-danger btn-pill" wire:click="confirmStop">
-                                        <i class="fas fa-stop-circle"></i> Stop Work
-                                        <span class="badge badge-light">{{ $this->getActiveDuration() }}</span>
-                                    </button>
-                                @else
-                                    {{-- Disabled jika sedang running di WO LAIN --}}
-                                    @php
-                                        $activeWO = \App\Models\WorkOrder::find($activeSessionUser->wo_id);
-                                    @endphp
-                                    <button type="button" class="btn btn-warning btn-pill" disabled
-                                        title="Currently working on {{ $activeWO->notification_number }}">
-                                        <i class="fas fa-exclamation-triangle"></i> Active on
-                                        {{ $activeWO->notification_number }}
-                                    </button>
-                                @endif
-                            @else
-                                {{-- Tombol START jika tidak ada session aktif sama sekali --}}
-                                <button type="button" class="btn btn-success btn-pill"
-                                    wire:click="confirmStart({{ $selectedWorkOrder->id }})">
-                                    <i class="fas fa-play-circle"></i> Start Work
-                                </button>
-                            @endif
+
+                        @if (!$this->isFinished())
+                            <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
+                                data-target="#sparepartModal">Sparepart</button>
+                            <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
+                                data-target="#activityModal">Activity</button>
+                        @endif
+
+                        @if ($this->canReschedule())
+                            <button type="button" class="btn btn-primary btn-pill"
+                                wire:click="confirmReschedule">Reschedule</button>
+                        @endif
+
+                        @if ($this->isNotStarted())
+                            <button type="button" class="btn btn-success btn-pill"
+                                wire:click="confirmStart">Start</button>
+                        @elseif ($this->isStarted())
+                            <button type="button" class="btn btn-danger btn-pill"
+                                wire:click="confirmStop">Stop</button>
                         @endif
                     </div>
                 </div>
@@ -318,8 +295,8 @@
         </div>
     @endif
 
-    {{-- Sparepart Modal --}}
-    @if ($selectedWorkOrder)
+    <!-- Sparepart Modal -->
+    @if ($selectedPm)
         <div wire:ignore.self class="modal fade" data-backdrop="static" id="sparepartModal" tabindex="-1"
             role="dialog">
             <div class="modal-dialog modal-dialog-centered" role="document">
@@ -416,14 +393,15 @@
         </div>
     @endif
 
-    @if ($selectedWorkOrder)
-        <div wire:ignore.self class="modal fade" data-backdrop="static" id="progressModal" tabindex="-1"
+    <!-- Activity Modal -->
+    @if ($selectedPm)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="activityModal" tabindex="-1"
             role="dialog">
             <div class="modal-dialog modal-dialog-centered" role="document">
                 <div class="modal-content shadow-lg">
                     <div class="modal-header bg-warning">
-                        <h5 class="modal-title text-white">Work Progress Detail</h5>
-                        <button type="button" class="close text-white" wire:click="resetProgressModal"
+                        <h5 class="modal-title text-white">Activity List</h5>
+                        <button type="button" class="close text-white" wire:click="resetActivityModal"
                             data-dismiss="modal">
                             <span>&times;</span>
                         </button>
@@ -455,58 +433,40 @@
                                 <div class="form-group">
                                     <label class="strong">Task List</label>
                                     <br>
-                                    @php
-                                        // Kelompokkan task berdasarkan planner_group_id
-                                        $groupedTasks = collect($activityLists)->groupBy('planner_group_id');
-                                        $plannerGroupNames = [
-                                            1 => 'Elektrik',
-                                            2 => 'Mekanik',
-                                        ];
-                                    @endphp
-                                    @forelse ($groupedTasks as $plannerGroupId => $tasks)
-                                        <div class="mb-2 container">
-                                            <h6 class="font-weight-bold text-primary">
-                                                {{ $plannerGroupNames[$plannerGroupId] ?? 'Planner Group ' . $plannerGroupId }}
-                                            </h6>
-                                            @foreach ($tasks as $task)
-                                                <div class="d-flex align-items-center mb-2">
-                                                    @if ($editingTaskId == $task['id'])
-                                                        <div class="flex-grow-1 d-flex align-items-center">
-                                                            <input type="text" class="form-control mr-2"
-                                                                wire:model="editingTaskName"
-                                                                wire:keydown.enter="updateTaskName"
-                                                                style="max-width: 300px;">
-                                                            <button class="btn btn-sm btn-pill btn-success mr-1"
-                                                                wire:click="updateTaskName">Save</button>
-                                                            <button class="btn btn-sm btn-secondary btn-pill"
-                                                                wire:click="cancelEditTask">Cancel</button>
-                                                        </div>
-                                                    @else
-                                                        <div class="custom-control custom-checkbox flex-grow-1">
-                                                            <input type="checkbox" class="custom-control-input"
-                                                                id="task{{ $task['id'] }}"
-                                                                @if ($task['is_done']) checked @endif
-                                                                wire:click="toggleTask({{ $task['id'] }})">
-                                                            <label class="custom-control-label"
-                                                                for="task{{ $task['id'] }}">
-                                                                {{ $task['task'] }}
-                                                            </label>
-                                                        </div>
-                                                        <div class="btn-group" role="group">
-                                                            <button class="btn btn-sm btn-outline-primary"
-                                                                wire:click="editTask({{ $task['id'] }})"
-                                                                title="Edit">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-danger"
-                                                                wire:click="deleteTask({{ $task['id'] }})"
-                                                                title="Delete">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
-                                                        </div>
-                                                    @endif
+                                    @forelse ($activityLists as $task)
+                                        <div class="d-flex align-items-center mb-2">
+                                            @if ($editingTaskId == $task['id'])
+                                                <div class="flex-grow-1 d-flex align-items-center">
+                                                    <input type="text" class="form-control mr-2"
+                                                        wire:model="editingTaskName"
+                                                        wire:keydown.enter="updateTaskName" style="max-width: 300px;">
+                                                    <button class="btn btn-sm btn-pill btn-success mr-1"
+                                                        wire:click="updateTaskName">Save</button>
+                                                    <button class="btn btn-sm btn-secondary btn-pill"
+                                                        wire:click="cancelEditTask">Cancel</button>
                                                 </div>
-                                            @endforeach
+                                            @else
+                                                <div class="custom-control custom-checkbox flex-grow-1">
+                                                    <input type="checkbox" class="custom-control-input"
+                                                        id="task{{ $task['id'] }}"
+                                                        @if ($task['is_done']) checked @endif
+                                                        wire:click="toggleTask({{ $task['id'] }})">
+                                                    <label class="custom-control-label"
+                                                        for="task{{ $task['id'] }}">
+                                                        {{ $task['task'] }}
+                                                    </label>
+                                                </div>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary"
+                                                        wire:click="editTask({{ $task['id'] }})" title="Edit">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                        wire:click="deleteTask({{ $task['id'] }})" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            @endif
                                         </div>
                                     @empty
                                         <p class="text-muted">No tasks added yet.</p>
@@ -516,47 +476,11 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetProgressModal"
+                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetActivityModal"
                             data-dismiss="modal">Cancel</button>
                         <button type="button" class="btn btn-success btn-pill"
-                            wire:click="confirmProgress">Update</button>
+                            wire:click="confirmActivityUpdate">Update</button>
                     </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    <!-- Close Modal -->
-    @if ($selectedWorkOrder)
-        <div wire:ignore.self class="modal fade" data-backdrop="static" id="closeModal" tabindex="-1"
-            role="dialog">
-            <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content shadow-lg">
-                    <div class="modal-header bg-success">
-                        <h5 class="modal-title text-white">Request to close</h5>
-                        <button type="button" class="close text-white" wire:click="resetCloseModal"
-                            data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <form>
-                        <div class="modal-body">
-                            <div class="form-group">
-                                <label for="reason">Reason:</label>
-                                <textarea wire:model='reason' name="reason" class="form-control" rows="3" required
-                                    placeholder="Please provide a reason..."></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary btn-pill" wire:click="resetCloseModal"
-                                data-dismiss="modal">Cancel</button>
-                            <button type="button"
-                                wire:click="confirmChange({{ $selectedWorkOrder->planner_group_id }})"
-                                class="btn btn-warning btn-pill">Planner change</button>
-                            <button type="button" wire:click="confirmClose" class="btn btn-success btn-pill">Request
-                                to close</button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
@@ -597,73 +521,24 @@
 @push('scripts')
     <script>
         document.addEventListener('livewire:initialized', function() {
-            // Show detail modal when data is ready
-            // Confirm Start Manhour
-            Livewire.on('confirmStartManhour', () => {
-                swal({
-                    title: "Start Work Session?",
-                    text: "This will record your work start time for this work order.",
-                    icon: "info",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Start",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                }).then((result) => {
-                    if (result) {
-                        @this.startManhour();
-                    }
-                });
+            // Show detail modal
+            Livewire.on('showDetailModal', () => {
+                setTimeout(() => {
+                    $('#detailModal').modal('show');
+                }, 100);
             });
 
-            // Confirm Stop Manhour
-            Livewire.on('confirmStopManhour', () => {
-                swal({
-                    title: "Stop Work Session?",
-                    text: "This will record your work end time and calculate total duration.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Stop",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-danger",
-                        }
-                    },
-                    dangerMode: true,
-                }).then((result) => {
-                    if (result) {
-                        @this.stopManhour();
-                    }
-                });
+            // Close detail modal
+            Livewire.on('closeDetailModal', () => {
+                $('#detailModal').modal('hide');
             });
 
-            // Auto-update durasi setiap 1 menit
-            setInterval(() => {
-                if (@this.activeSessionUser) {
-                    @this.$refresh();
-                }
-            }, 60000); // Update setiap 60 detik
-            // Tambah setelah event listener confirmProgress
+            // Close all modals
+            Livewire.on('closeAllModals', () => {
+                $('.modal').modal('hide');
+            });
+
+            // Confirm Sparepart Submit
             Livewire.on('confirmSparepartSubmit', () => {
                 swal({
                     title: "Are you sure?",
@@ -693,11 +568,11 @@
                 });
             });
 
-            // Tambah setelah event listener yang sudah ada
-            Livewire.on('confirmProgress', () => {
+            // Confirm Activity Update
+            Livewire.on('confirmActivityUpdate', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to update work progress. This action cannot be undone.",
+                    text: "You are about to update activity list. This action cannot be undone.",
                     icon: "warning",
                     buttons: {
                         cancel: {
@@ -718,66 +593,57 @@
                     dangerMode: false,
                 }).then((result) => {
                     if (result) {
-                        @this.updateProgress();
+                        @this.updateActivity();
                     }
                 });
             });
-            Livewire.on('showDetailModal', () => {
-                setTimeout(() => {
-                    $('#detailModal').modal('show');
-                }, 100);
-            });
 
-            // Close detail modal specifically
-            Livewire.on('closeDetailModal', () => {
-                $('#detailModal').modal('hide');
-            });
-
-            // Close all modals (used after approve/reject success)
-            Livewire.on('closeAllModals', () => {
-                $('.modal').modal('hide');
-            });
-
-            // Open new tab for team creation
-            Livewire.on('openNewTab', (url) => {
-                window.open(url, '_blank');
-            });
-
-            Livewire.on('unfinished', () => {
-                swal({
-                    title: "Error!",
-                    text: "Please finish all tasks before closing.",
-                    icon: "error",
-                    button: "OK",
-                });
-            });
-
-            // Confirm approve with SweetAlert
-            Livewire.on('confirmClose', () => {
-                if (!@this.reason || @this.reason.trim() === '') {
-                    swal({
-                        title: "Error!",
-                        text: "Please provide close reason before proceeding.",
-                        icon: "error",
-                        button: "OK",
-                    });
-                    return;
-                }
-
+            // Confirm Reschedule
+            Livewire.on('confirmReschedule', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to approve this work order. This action cannot be undone.",
+                    text: "You are about to reschedule this preventive maintenance.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "Cancel",
+                            text: "No",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            className: "btn btn-pill btn-secondary",
                         },
                         confirm: {
-                            text: "Yes, Approve",
+                            text: "Yes",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-primary",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.reschedule();
+                    }
+                });
+            });
+
+            // Confirm Start
+            Livewire.on('confirmStart', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to start this preventive maintenance.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "No",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-secondary",
+                        },
+                        confirm: {
+                            text: "Yes, Start",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -787,36 +653,37 @@
                     dangerMode: false,
                 }).then((result) => {
                     if (result) {
-                        @this.closeWorkOrder();
+                        @this.startMaintenance();
                     }
                 });
             });
 
-            Livewire.on('confirmChange', () => {
+            // Confirm Stop
+            Livewire.on('confirmStop', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to change this planner group. This action cannot be undone.",
+                    text: "You are about to stop this preventive maintenance.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "Cancel",
+                            text: "No",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
+                            className: "btn btn-pill btn-secondary",
                         },
                         confirm: {
-                            text: "Yes, Change Planner Group",
+                            text: "Yes, Stop",
                             value: true,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            className: "btn btn-pill btn-danger",
                         }
                     },
-                    dangerMode: false,
+                    dangerMode: true,
                 }).then((result) => {
                     if (result) {
-                        @this.changePlannerGroup();
+                        @this.stopMaintenance();
                     }
                 });
             });
@@ -829,72 +696,20 @@
 
         document.addEventListener('livewire:navigated', function() {
             // Duplicate event listeners for SPA navigation
-            // Confirm Start Manhour
-            Livewire.on('confirmStartManhour', () => {
-                swal({
-                    title: "Start Work Session?",
-                    text: "This will record your work start time for this work order.",
-                    icon: "info",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Start",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                }).then((result) => {
-                    if (result) {
-                        @this.startManhour();
-                    }
-                });
+            Livewire.on('showDetailModal', () => {
+                setTimeout(() => {
+                    $('#detailModal').modal('show');
+                }, 100);
             });
 
-            // Confirm Stop Manhour
-            Livewire.on('confirmStopManhour', () => {
-                swal({
-                    title: "Stop Work Session?",
-                    text: "This will record your work end time and calculate total duration.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Stop",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-danger",
-                        }
-                    },
-                    dangerMode: true,
-                }).then((result) => {
-                    if (result) {
-                        @this.stopManhour();
-                    }
-                });
+            Livewire.on('closeDetailModal', () => {
+                $('#detailModal').modal('hide');
             });
 
-            // Auto-update durasi setiap 1 menit
-            setInterval(() => {
-                if (@this.activeSessionUser) {
-                    @this.$refresh();
-                }
-            }, 60000); // Update setiap 60 detik
-            // Tambah setelah event listener confirmProgress
+            Livewire.on('closeAllModals', () => {
+                $('.modal').modal('hide');
+            });
+
             Livewire.on('confirmSparepartSubmit', () => {
                 swal({
                     title: "Are you sure?",
@@ -923,11 +738,11 @@
                     }
                 });
             });
-            // Tambah setelah event listener yang sudah ada
-            Livewire.on('confirmProgress', () => {
+
+            Livewire.on('confirmActivityUpdate', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to update work progress. This action cannot be undone.",
+                    text: "You are about to update activity list. This action cannot be undone.",
                     icon: "warning",
                     buttons: {
                         cancel: {
@@ -948,26 +763,55 @@
                     dangerMode: false,
                 }).then((result) => {
                     if (result) {
-                        @this.updateProgress();
+                        @this.updateActivity();
                     }
                 });
             });
 
-            Livewire.on('confirmChange', () => {
+            Livewire.on('confirmReschedule', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to change this planner group. This action cannot be undone.",
+                    text: "You are about to reschedule this preventive maintenance.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "Cancel",
+                            text: "No",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
+                            className: "btn btn-pill btn-secondary",
                         },
                         confirm: {
-                            text: "Yes, Change Planner Group",
+                            text: "Yes",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-primary",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.reschedule();
+                    }
+                });
+            });
+
+            Livewire.on('confirmStart', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to start this preventive maintenance.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "No",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-secondary",
+                        },
+                        confirm: {
+                            text: "Yes, Start",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -977,75 +821,39 @@
                     dangerMode: false,
                 }).then((result) => {
                     if (result) {
-                        @this.changePlannerGroup();
+                        @this.startMaintenance();
                     }
                 });
             });
 
-            Livewire.on('showDetailModal', () => {
-                setTimeout(() => {
-                    $('#detailModal').modal('show');
-                }, 100);
-            });
-
-            Livewire.on('closeDetailModal', () => {
-                $('#detailModal').modal('hide');
-            });
-
-            Livewire.on('closeAllModals', () => {
-                $('.modal').modal('hide');
-            });
-
-            Livewire.on('openNewTab', (url) => {
-                window.open(url, '_blank');
-            });
-
-            Livewire.on('unfinished', () => {
-                swal({
-                    title: "Error!",
-                    text: "Please finish all tasks before closing.",
-                    icon: "error",
-                    button: "OK",
-                });
-            });
-
-            Livewire.on('confirmClose', () => {
-                if (!@this.reason || @this.reason.trim() === '') {
-                    swal({
-                        title: "Error!",
-                        text: "Please provide close reason before proceeding.",
-                        icon: "error",
-                        button: "OK",
-                    });
-                    return;
-                }
-
+            Livewire.on('confirmStop', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to close this work order. This action cannot be undone.",
+                    text: "You are about to stop this preventive maintenance.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "Cancel",
+                            text: "No",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill",
+                            className: "btn btn-pill btn-secondary",
                         },
                         confirm: {
-                            text: "Yes, close",
+                            text: "Yes, Stop",
                             value: true,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-success",
+                            className: "btn btn-pill btn-danger",
                         }
                     },
-                    dangerMode: false,
+                    dangerMode: true,
                 }).then((result) => {
-                    if (result) @this.closeWorkOrder();
+                    if (result) {
+                        @this.stopMaintenance();
+                    }
                 });
             });
-
         });
 
         Livewire.on('clearDropdown', (index) => {

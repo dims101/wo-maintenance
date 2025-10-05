@@ -2,14 +2,10 @@
 
 namespace App\Models;
 
-use App\Models\Role;
-use App\Models\Department;
-use App\Models\PlannerGroup;
-use App\Models\RoleAssignment;
-use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
@@ -39,6 +35,10 @@ class User extends Authenticatable
         return $this->belongsTo(PlannerGroup::class, 'planner_group_id');
     }
 
+    public function actualManhours()
+    {
+        return $this->hasMany(ActualManhour::class, 'user_id');
+    }
 
     /**
      * The attributes that are mass assignable.

@@ -28,6 +28,7 @@ class WorkOrder extends Model
         'spv_reject_reason',
         'spv_approve_reason',
         'is_sparepart_complete',
+        'revision_note',
     ];
 
     protected function casts(): array

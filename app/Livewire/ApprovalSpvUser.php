@@ -60,6 +60,8 @@ class ApprovalSpvUser extends Component
     public $mats = [];
 
     public $users = [];
+
+    public $isPgComplete;
     // public $users;
 
     protected $paginationTheme = 'bootstrap';
@@ -148,10 +150,11 @@ class ApprovalSpvUser extends Component
             ->find($workOrderId);
         // dd($this->selectedWorkOrder->maintenanceApproval);
         $maintenanceApproval = $this->selectedWorkOrder->maintenanceApproval;
-        $this->selectedOrderType = $maintenanceApproval->mat->order_type_id;
-        $this->selectedMat = $maintenanceApproval->mat_id;
-        $this->startDateTime = $maintenanceApproval->start->format('Y-m-d\TH:i');
-        $this->finishDateTime = $maintenanceApproval->finish->format('Y-m-d\TH:i');
+        $this->isPgComplete = $maintenanceApproval?->id ? WoPlannerGroup::where('approval_id', $maintenanceApproval->id)->count() == 2 : false;
+        $this->selectedOrderType = $maintenanceApproval->mat->order_type_id ?? null;
+        $this->selectedMat = $maintenanceApproval->mat_id ?? null;
+        $this->startDateTime = $maintenanceApproval?->start->format('Y-m-d\TH:i') ?? null;
+        $this->finishDateTime = $maintenanceApproval?->finish->format('Y-m-d\TH:i') ?? null;
         // dd($this->selectedOrderType);
         $this->dispatch('showDetailModal');
     }
@@ -202,6 +205,10 @@ class ApprovalSpvUser extends Component
                 $this->popupModalHeaderClass = 'bg-danger';
                 $this->popupModalTitle = 'Reject Planner Group Change';
                 $this->popupModalAction = 'rejectChange';
+            } elseif ($action == 'needRevision') {
+                $this->popupModalHeaderClass = 'bg-primary';
+                $this->popupModalTitle = 'Revision Notes';
+                $this->popupModalAction = 'needRevision';
             }
         }
     }
@@ -479,39 +486,41 @@ class ApprovalSpvUser extends Component
         // Validation
         $errors = [];
 
-        if (! $this->selectedOrderType) {
-            $errors[] = 'Order Type is required.';
-        }
+        // if (! $this->selectedOrderType) {
+        //     $errors[] = 'Order Type is required.';
+        // }
 
-        if (! $this->selectedMat) {
-            $errors[] = 'Maintenance Activity Type is required.';
-        }
+        // if (! $this->selectedMat) {
+        //     $errors[] = 'Maintenance Activity Type is required.';
+        // }
 
-        if (! $this->selectedPic) {
-            $errors[] = 'PIC is required.';
-        }
+        // if (! $this->selectedPic) {
+        //     $errors[] = 'PIC is required.';
+        // }
 
-        if (! $this->startDateTime) {
-            $errors[] = 'Start Date Time is required.';
-        }
+        // if (! $this->startDateTime) {
+        //     $errors[] = 'Start Date Time is required.';
+        // }
 
-        if (! $this->finishDateTime) {
-            $errors[] = 'Finish Date Time is required.';
-        }
+        // if (! $this->finishDateTime) {
+        //     $errors[] = 'Finish Date Time is required.';
+        // }
 
         // Filter out empty team members and validate
         $validTeamMembers = array_filter($this->teamMembers, function ($member) {
             return ! empty($member);
         });
 
-        if (empty($validTeamMembers)) {
-            $errors[] = 'At least one team member is required.';
-        }
+        // dd(count($validTeamMembers));
+
+        // if (empty($validTeamMembers)) {
+        //     $errors[] = 'At least one team member is required.';
+        // }
 
         // Check if PIC is in team members
-        if ($this->selectedPic && in_array($this->selectedPic, $validTeamMembers)) {
-            $errors[] = 'PIC cannot be a team member.';
-        }
+        // if ($this->selectedPic && in_array($this->selectedPic, $validTeamMembers)) {
+        //     $errors[] = 'PIC cannot be a team member.';
+        // }
 
         if (! empty($errors)) {
             session()->flash('error', implode(' ', $errors));
@@ -539,21 +548,22 @@ class ApprovalSpvUser extends Component
             // TeamAssignment::where('approval_id', $maintenanceApproval->id)->delete();
 
             // Create team assignment for PIC
-            TeamAssignment::create([
-                'approval_id' => $this->selectedWorkOrder->maintenanceApproval->id,
-                'user_id' => $this->selectedPic,
-                'is_pic' => true,
-            ]);
-
-            // Create team assignments for team members
-            foreach ($validTeamMembers as $memberId) {
+            if (! empty($validTeamMembers)) {
                 TeamAssignment::create([
                     'approval_id' => $this->selectedWorkOrder->maintenanceApproval->id,
-                    'user_id' => $memberId,
-                    'is_pic' => false,
+                    'user_id' => $this->selectedPic,
+                    'is_pic' => true,
                 ]);
-            }
 
+                // Create team assignments for team members
+                foreach ($validTeamMembers as $memberId) {
+                    TeamAssignment::create([
+                        'approval_id' => $this->selectedWorkOrder->maintenanceApproval->id,
+                        'user_id' => $memberId,
+                        'is_pic' => false,
+                    ]);
+                }
+            }
             // Update work order status
             // $this->selectedWorkOrder->update([
             //     'status' => 'Planned',
@@ -642,6 +652,70 @@ class ApprovalSpvUser extends Component
         session()->flash('message', 'Work Order received successfully.');
     }
 
+    public function confirmNeedRevision()
+    {
+        $this->dispatch('confirmNeedRevision');
+    }
+
+    public function needRevision()
+    {
+        $this->selectedWorkOrder->update([
+            'revision_note' => $this->reason,
+            'status' => 'Need Revision',
+        ]);
+
+        $spv = User::where('dept_id', 1)
+            ->where('role_id', 2)
+            ->where('planner_group_id', $this->selectedWorkOrder->planner_group_id)
+            ->first();
+
+        if ($spv && $spv->email) {
+            Mail::to($spv->email)->send(
+                new SendGeneralMail(
+                    sapaan: 'Dear',
+                    nama: $spv->name,
+                    isi: "Ada revisi yang perlu anda tinjau.\nKlik tombol di bawah untuk melihat detail.",
+                    link: route('work-order.spv-approval'),
+                    penutup: '[This message is generated by system]'
+                )
+            );
+        }
+        $this->dispatch('closeAllModals');
+        session()->flash('message', 'Revision for this SPK is successfuly submitted.');
+    }
+
+    public function confirmApproveClose()
+    {
+        $this->dispatch('confirmApproveClose');
+    }
+
+    public function approveClose()
+    {
+        $this->selectedWorkOrder->update([
+            'status' => 'Close',
+        ]);
+        $this->selectedWorkOrder->maintenanceApproval->update([
+            'is_closed' => true,
+        ]);
+
+        $spv = $this->getSpvDetail($this->selectedWorkOrder->department->spv_id);
+
+        if ($spv && $spv->email) {
+            Mail::to($spv->email)->send(
+                new SendGeneralMail(
+                    sapaan: 'Dear',
+                    nama: $spv->name,
+                    isi: "SPK telah selesai.\nKlik tombol di bawah untuk melihat detail.",
+                    link: route('work-order.spv-approval'),
+                    penutup: '[This message is generated by system]'
+                )
+            );
+        }
+
+        $this->dispatch('closeAllModals');
+        session()->flash('message', 'Revision for this SPK is successfuly submitted.');
+    }
+
     public function confirmRejectChange()
     {
         $this->dispatch('confirmRejectChange');
@@ -649,7 +723,36 @@ class ApprovalSpvUser extends Component
 
     public function rejectChange()
     {
-        dd('test');
+        $approvalId = $this->selectedWorkOrder->maintenanceApproval->id;
+        $currentPgId = $this->selectedWorkOrder->planner_group_id;
+        $targetPgId = $currentPgId == 1 ? 2 : 1;
+
+        WoPlannerGroup::where('approval_id', $approvalId)
+            ->where('planner_group_id', $currentPgId)
+            ->update(['status' => 'Active']);
+
+        WorkOrder::where('id', $this->selectedWorkOrderId)
+            ->update(['status' => 'Planned']);
+
+        $spv = User::where('dept_id', 1)
+            ->where('role_id', 2)
+            ->where('planner_group_id', $currentPgId)
+            ->first();
+
+        if ($spv && $spv->email) {
+            Mail::to($spv->email)->send(
+                new SendGeneralMail(
+                    sapaan: 'Dear',
+                    nama: $spv->name,
+                    isi: "Perubahan planner group ditolak.\nKlik tombol di bawah untuk melihat detail.",
+                    link: route('work-order.spv-approval'),
+                    penutup: '[This message is generated by system]'
+                )
+            );
+        }
+
+        $this->dispatch('closeAllModals');
+        session()->flash('message', "Work Order's change planner group rejection successfully submitted");
     }
 
     public function confirmApprove()

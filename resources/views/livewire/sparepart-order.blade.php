@@ -66,14 +66,14 @@
                                 @forelse ($workOrders as $workOrder)
                                     <tr>
                                         <td>
-                                            <button type="button" class="btn btn-sm btn-warning" title="Edit Details"
-                                                wire:click="openEditModal({{ $workOrder->id }})">
+                                            <button type="button" class="btn btn-link btn-lg btn-warning"
+                                                title="Edit Details" wire:click="openEditModal({{ $workOrder->id }})">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                         </td>
                                         <td>
-                                            <button type="button" class="btn btn-sm btn-info" title="View Details"
-                                                wire:click="openDetailModal({{ $workOrder->id }})">
+                                            <button type="button" class="btn btn-link btn-lg btn-info"
+                                                title="View Details" wire:click="openDetailModal({{ $workOrder->id }})">
                                                 <i class="fas fa-eye"></i>
                                             </button>
                                         </td>
@@ -250,14 +250,14 @@
                         @endif
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                        <button type="button" class="btn btn-pill btn-secondary" data-dismiss="modal"
                             wire:click="closeModal">
                             <i class="fas fa-times mr-2"></i>Close
                         </button>
 
                         <!-- Tombol Submit hanya muncul di mode edit -->
                         @if ($modalMode === 'edit')
-                            <button type="button" class="btn btn-success">
+                            <button type="button" class="btn btn-pill btn-success">
                                 <i class="fas fa-check mr-2"></i>Submit Data
                             </button>
                         @endif
@@ -306,10 +306,10 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" wire:click="closeScanModal">
+                        <button type="button" class="btn btn-pill btn-secondary" wire:click="closeScanModal">
                             <i class="fas fa-times mr-2"></i>Close
                         </button>
-                        <button type="button" class="btn btn-success">
+                        <button type="button" class="btn btn-pill btn-success">
                             <i class="fas fa-save mr-2"></i>Save Data
                         </button>
                     </div>

@@ -323,14 +323,20 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
-                        @if ($selectedWorkOrder->status == 'Waiting for SPV Approval' && !$selectedWorkOrder->is_spv_rejected)
+                        @if (
+                            $selectedWorkOrder->status == 'Waiting for SPV Approval' &&
+                                auth()->user()->role_id == 3 &&
+                                auth()->user()->dept_id != 1)
                             <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("reject","spvUser")'>Reject</button>
                             <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("approve","spvUser")'>Approve</button>
-                        @elseif ($selectedWorkOrder->status == 'Waiting for Maintenance Approval' && !$selectedWorkOrder->is_spv_rejected)
+                        @elseif (
+                            $selectedWorkOrder->status == 'Waiting for Maintenance Approval' &&
+                                auth()->user()->role_id == 3 &&
+                                auth()->user()->dept_id == 1)
                             <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("receive","spvMaintenance")'>Receive</button>
@@ -339,19 +345,28 @@
                                 wire:click='openPopupModal("reject","spvMaintenance")'>Reject</button>
                             <button class="btn btn-success btn-pill" data-toggle="modal"
                                 data-target="#approvalMaintenance">Approve</button>
-                        @elseif ($selectedWorkOrder->status == 'Received by Maintenance' && !$selectedWorkOrder->is_spv_rejected)
+                        @elseif (
+                            $selectedWorkOrder->status == 'Received by Maintenance' &&
+                                auth()->user()->role_id == 3 &&
+                                auth()->user()->dept_id == 1)
                             <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("reject","spvMaintenance")'>Reject</button>
                             <button class="btn btn-success btn-pill" data-toggle="modal"
                                 data-target="#approvalMaintenance">Approve</button>
-                        @elseif($selectedWorkOrder->status == 'Requested to change planner group' && !$selectedWorkOrder->is_spv_rejected)
+                        @elseif(
+                            $selectedWorkOrder->status == 'Requested to change planner group' &&
+                                auth()->user()->role_id == 3 &&
+                                auth()->user()->dept_id == 1)
                             <button type="button" class="btn btn-danger btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("rejectChange","spvMaintenance")'>Reject</button>
                             <button class="btn btn-success btn-pill" data-toggle="modal"
                                 data-target="#approvalMaintenance">Approve</button>
-                        @elseif ($selectedWorkOrder->status == 'Requested to be closed' && !$selectedWorkOrder->is_spv_rejected)
+                        @elseif (
+                            $selectedWorkOrder->status == 'Requested to be closed' &&
+                                auth()->user()->role_id == 3 &&
+                                auth()->user()->dept_id != 1)
                             <button type="button" class="btn btn-primary btn-pill" data-toggle="modal"
                                 data-target="#popupModal"
                                 wire:click='openPopupModal("needRevision","spvMaintenance")'>Need Revision</button>

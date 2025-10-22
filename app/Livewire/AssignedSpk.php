@@ -13,6 +13,7 @@ use App\Models\TeamAssignment;
 use App\Models\User;
 use App\Models\WoPlannerGroup;
 use App\Models\WorkOrder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Title;
@@ -32,6 +33,8 @@ class AssignedSpk extends Component
 
     public $selectedWorkOrderId = null;
 
+    public $selectedApprovalId = null;
+
     public $selectedWorkOrder = null;
 
     public $popupModalAction = '';
@@ -41,6 +44,10 @@ class AssignedSpk extends Component
     public $activeSessionUser = null; // Track user yang sedang running
 
     public $startTime = null; // Untuk tampilan durasi
+
+    public $showAllWorkOrdersModal = false;
+
+    public $availableWorkOrders = [];
 
     public $activityLists = [];
 
@@ -65,16 +72,127 @@ class AssignedSpk extends Component
         $this->checkActiveSession();
     }
 
+    public function openAllWorkOrdersModal()
+    {
+        $this->loadAvailableWorkOrders();
+        $this->showAllWorkOrdersModal = true;
+    }
+
+    public function loadAvailableWorkOrders()
+    {
+        $userPlannerGroupId = Auth::user()->planner_group_id;
+
+        $this->availableWorkOrders = WorkOrder::with([
+            'equipment',
+            'department',
+            'maintenanceApproval.teamAssignments.user',
+        ])
+            ->where('planner_group_id', $userPlannerGroupId)
+            ->whereIn('status', ['Planned', 'Need Revision'])
+            ->whereHas('maintenanceApproval')
+            ->get()
+            ->map(function ($wo) {
+                $pic = $wo->maintenanceApproval
+                    ->teamAssignments
+                    ->where('is_pic', true)
+                    ->first();
+
+                return [
+                    'id' => $wo->id,
+                    'notification_number' => $wo->notification_number,
+                    'equipment' => $wo->equipment->name ?? '-',
+                    'urgent_level' => $wo->urgent_level,
+                    'department' => $wo->department->name ?? '-',
+                    'pic_name' => $pic ? $pic->user->name : 'Not Assigned',
+                    'approval_id' => $wo->maintenanceApproval->id,
+                ];
+            })
+            ->toArray();
+    }
+
+    public function closeAllWorkOrdersModal()
+    {
+        $this->showAllWorkOrdersModal = false;
+        $this->availableWorkOrders = [];
+    }
+
+    public function confirmAssignSelf($approvalId)
+    {
+        $this->selectedApprovalId = $approvalId;
+        $this->dispatch('confirmAssignSelf');
+    }
+
+    public function assignSelfToWorkOrder()
+    {
+        try {
+            DB::beginTransaction();
+
+            // Double check user tidak punya assignment
+            if ($this->hasActiveAssignment()) {
+                session()->flash('error', 'You already have an active assignment.');
+                DB::rollBack();
+
+                return;
+            }
+
+            TeamAssignment::create([
+                'approval_id' => $this->selectedApprovalId,
+                'user_id' => Auth::user()->id,
+                'is_pic' => false,
+            ]);
+
+            DB::commit();
+
+            $this->closeAllWorkOrdersModal();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'You have been assigned to the work order successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to assign: '.$e->getMessage());
+        }
+    }
+
+    public function hasActiveAssignment()
+    {
+        // Cek apakah user punya assignment di WO yang belum closed
+        return TeamAssignment::where('user_id', Auth::user()->id)
+            ->whereHas('approval.workOrder', function ($q) {
+                $q->whereNotIn('status', ['Closed', 'Rejected']);
+            })
+            ->exists();
+    }
+
+    public function canShowAllWorkOrderButton()
+    {
+        // Tombol muncul jika: tidak sedang start work DAN tidak punya assignment
+        return ! $this->activeSessionUser && ! $this->hasActiveAssignment();
+    }
+
     public function checkActiveSession()
     {
         // Cek apakah user sedang punya session aktif di WO MANAPUN
-        $this->activeSessionUser = ActualManhour::where('user_id', auth()->user()->id)
+        $this->activeSessionUser = ActualManhour::where('user_id', Auth::user()->id)
             ->whereNull('stop_job')
             ->first();
 
         if ($this->activeSessionUser) {
             $this->startTime = $this->activeSessionUser->start_job;
         }
+    }
+
+    public function isUserPic($workOrderId)
+    {
+        $approval = MaintenanceApproval::where('wo_id', $workOrderId)->first();
+
+        if (! $approval) {
+            return false;
+        }
+
+        return TeamAssignment::where('approval_id', $approval->id)
+            ->where('user_id', Auth::user()->id)
+            ->where('is_pic', true)
+            ->exists();
     }
 
     public function isUserAssignedToTeam($workOrderId)
@@ -86,7 +204,7 @@ class AssignedSpk extends Component
         }
 
         return TeamAssignment::where('approval_id', $approval->id)
-            ->where('user_id', auth()->user()->id)
+            ->where('user_id', Auth::user()->id)
             ->exists();
     }
 
@@ -100,7 +218,7 @@ class AssignedSpk extends Component
         }
 
         // Validasi user tidak boleh punya active session di WO manapun
-        $activeSession = ActualManhour::where('user_id', auth()->user()->id)
+        $activeSession = ActualManhour::where('user_id', Auth::user()->id)
             ->whereNull('stop_job')
             ->first();
 
@@ -121,7 +239,7 @@ class AssignedSpk extends Component
             DB::beginTransaction();
 
             ActualManhour::create([
-                'user_id' => auth()->user()->id,
+                'user_id' => Auth::user()->id,
                 'wo_id' => $this->selectedWorkOrderId,
                 'start_job' => now(),
                 // shift dan date akan diset otomatis oleh mutator
@@ -155,7 +273,7 @@ class AssignedSpk extends Component
         try {
             DB::beginTransaction();
 
-            $session = ActualManhour::where('user_id', auth()->user()->id)
+            $session = ActualManhour::where('user_id', Auth::user()->id)
                 ->whereNull('stop_job')
                 ->where('wo_id', $this->activeSessionUser->wo_id)
                 ->first();
@@ -558,7 +676,7 @@ class AssignedSpk extends Component
             ->update(['status' => 'Requested to change planner group']);
 
         $spv = User::where('dept_id', 1)
-            ->where('role_id', 2)
+            ->where('role_id', 3)
             ->where('planner_group_id', $targetPgId)
             ->first();
 
@@ -593,7 +711,7 @@ class AssignedSpk extends Component
 
         // $spv = $this->getSpvDetail($this->selectedWorkOrder->department->spv_id);
         $spv = User::where('dept_id', 1)
-            ->where('role_id', 2)
+            ->where('role_id', 3)
             ->where('planner_group_id', $this->selectedWorkOrder->planner_group_id)
             ->first();
 
@@ -642,10 +760,14 @@ class AssignedSpk extends Component
 
     public function render()
     {
+        $userId = Auth::user()->id;
+
         $query = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
             ->where('is_spv_rejected', 'false')
-            ->where('status', 'Planned')
-            ->orWhere('status', 'Need Revision');
+            ->whereIn('status', ['Planned', 'Need Revision'])
+            ->whereHas('maintenanceApproval.teamAssignments', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            });
 
         if ($this->search) {
             $query->where(function ($q) {

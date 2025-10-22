@@ -153,8 +153,8 @@ class ApprovalSpvUser extends Component
         $this->isPgComplete = $maintenanceApproval?->id ? WoPlannerGroup::where('approval_id', $maintenanceApproval->id)->count() == 2 : false;
         $this->selectedOrderType = $maintenanceApproval->mat->order_type_id ?? null;
         $this->selectedMat = $maintenanceApproval->mat_id ?? null;
-        $this->startDateTime = $maintenanceApproval?->start->format('Y-m-d\TH:i') ?? null;
-        $this->finishDateTime = $maintenanceApproval?->finish->format('Y-m-d\TH:i') ?? null;
+        $this->startDateTime = $maintenanceApproval->start?->format('Y-m-d\TH:i') ?? null;
+        $this->finishDateTime = $maintenanceApproval->finish?->format('Y-m-d\TH:i') ?? null;
         // dd($this->selectedOrderType);
         $this->dispatch('showDetailModal');
     }
@@ -236,7 +236,7 @@ class ApprovalSpvUser extends Component
 
         // $spv = $this->getSpvDetail(Department::find(1)->spv_id);
         $spv = User::where('dept_id', 1)
-            ->where('role_id', 2)
+            ->where('role_id', 3)
             ->where('planner_group_id', $this->selectedWorkOrder->planner_group_id)
             ->first();
 
@@ -632,7 +632,7 @@ class ApprovalSpvUser extends Component
 
         // $spv = $this->getSpvDetail($this->selectedWorkOrder->department->spv_id);
         $spv = User::where('dept_id', 1)
-            ->where('role_id', 2)
+            ->where('role_id', 3)
             ->where('planner_group_id', $currentPgId)
             ->first();
 
@@ -665,7 +665,7 @@ class ApprovalSpvUser extends Component
         ]);
 
         $spv = User::where('dept_id', 1)
-            ->where('role_id', 2)
+            ->where('role_id', 3)
             ->where('planner_group_id', $this->selectedWorkOrder->planner_group_id)
             ->first();
 
@@ -735,7 +735,7 @@ class ApprovalSpvUser extends Component
             ->update(['status' => 'Planned']);
 
         $spv = User::where('dept_id', 1)
-            ->where('role_id', 2)
+            ->where('role_id', 3)
             ->where('planner_group_id', $currentPgId)
             ->first();
 
@@ -797,6 +797,10 @@ class ApprovalSpvUser extends Component
                     ->orWhere('urgent_level', 'ilike', '%'.$this->search.'%')
                     ->orWhere('notification_number', 'ilike', '%'.$this->search.'%');
             });
+        }
+
+        if (Auth::user()->dept_id != 1) {
+            $query->where('req_dept_id', Auth::user()->dept_id);
         }
 
         $workOrders = $query->orderBy('created_at', 'desc')

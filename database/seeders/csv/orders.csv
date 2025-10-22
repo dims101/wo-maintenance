@@ -1,0 +1,7 @@
+id,type,desc
+1,PM01,Breakdown Maintenance Order
+2,PM02,Corrective Maintenance Order
+3,PM03,Preventive Maintenance Order
+4,PM04,Refurbishment Order
+5,PM05,Calibration Order
+6,PM06,Project Maintenance Order

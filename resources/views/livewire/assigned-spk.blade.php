@@ -28,7 +28,7 @@
                     <!-- Header Controls -->
                     <div class="row mb-3">
                         <!-- Show Entries Dropdown -->
-                        <div class="col-md-6">
+                        <div class="col-md-5">
                             <div class="d-flex align-items-center">
                                 <span class="mr-2">Show</span>
                                 <select wire:model.live="perPage" class="form-control"
@@ -39,10 +39,23 @@
                                     <option value="100">100</option>
                                 </select>
                                 <span class="ml-2">entries</span>
+
+                            </div>
+                        </div>
+                        <div class="col-md-5 pr-0 mr-0">
+                            <div class="d-flex align-items-center justify-content-end">
+                                <div class="form-group mb-0">
+                                    @if ($this->canShowAllWorkOrderButton())
+                                        <button type="button" class="btn btn-primary btn-sm mt-1"
+                                            wire:click="openAllWorkOrdersModal">
+                                            <i class="fas fa-list"></i> All Work Orders
+                                        </button>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         <!-- Search Box -->
-                        <div class="col-md-6">
+                        <div class="col-md-2">
                             <div class="d-flex justify-content-end">
                                 <div class="form-group mb-0" style="width: 250px;">
                                     <input type="text" wire:model.live.debounce.300ms="search" class="form-control"
@@ -276,16 +289,20 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
-                        <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                            data-target="#sparepartModal">Sparepart reservation</button>
-                        <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
-                            data-target="#progressModal">Update
-                            progress</button>
-                        <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
-                            data-target="#closeModal">Request to
-                            close</button>
+                        @if ($this->isUserPic($selectedWorkOrder->id))
+                            <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
+                                data-target="#sparepartModal">Sparepart reservation</button>
+                            <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
+                                data-target="#progressModal">Update
+                                progress</button>
+                            <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
+                                data-target="#closeModal">Request to
+                                close</button>
+                        @endif
                         {{-- START/STOP BUTTONS - Hanya muncul jika status = Planned dan user di-assign --}}
-                        @if ($selectedWorkOrder->status === 'Planned' && $this->isUserAssignedToTeam($selectedWorkOrder->id))
+                        @if (
+                            ($selectedWorkOrder->status === 'Planned' || $selectedWorkOrder->status === 'Need Revision') &&
+                                $this->isUserAssignedToTeam($selectedWorkOrder->id))
                             @if ($activeSessionUser)
                                 @if ($activeSessionUser->wo_id == $selectedWorkOrder->id)
                                     {{-- Tombol STOP jika sedang running untuk WO INI --}}
@@ -562,6 +579,72 @@
         </div>
     @endif
 
+    {{-- Modal All Work Orders --}}
+    @if ($showAllWorkOrdersModal)
+        <div wire:ignore.self class="modal fade show" id="allWorkOrdersModal" tabindex="-1"
+            style="display: block; background: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary">
+                        <h5 class="modal-title text-white">Available Work Orders</h5>
+                        <button type="button" class="close text-white" wire:click="closeAllWorkOrdersModal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        @if (count($availableWorkOrders) > 0)
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>Notification Number</th>
+                                            <th>Equipment</th>
+                                            <th>Urgent Level</th>
+                                            <th>Department</th>
+                                            <th>PIC</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($availableWorkOrders as $wo)
+                                            <tr>
+                                                <td>{{ $wo['notification_number'] }}</td>
+                                                <td>{{ $wo['equipment'] }}</td>
+                                                <td>
+                                                    <span
+                                                        class="badge badge-{{ $wo['urgent_level'] == 'High' ? 'danger' : ($wo['urgent_level'] == 'Medium' ? 'warning' : 'info') }}">
+                                                        {{ $wo['urgent_level'] }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ $wo['department'] }}</td>
+                                                <td>{{ $wo['pic_name'] }}</td>
+                                                <td>
+                                                    <button type="button" class="btn btn-pill btn-sm btn-success"
+                                                        wire:click="confirmAssignSelf({{ $wo['approval_id'] }})">
+                                                        <i class="fas fa-user-plus"></i> Assign Me
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-center py-4">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No available work orders at the moment.</p>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-pill"
+                            wire:click="closeAllWorkOrdersModal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Loading Indicator -->
     <div wire:loading.delay class="position-fixed"
         style="top: 0; left: 0; width: 100%; height: 100%; background: rgba(178, 188, 202, 0.1); z-index: 9999;">
@@ -598,6 +681,35 @@
     <script>
         document.addEventListener('livewire:initialized', function() {
             // Show detail modal when data is ready
+
+            // Confirm Assign Self
+            Livewire.on('confirmAssignSelf', () => {
+                swal({
+                    title: "Assign Yourself?",
+                    text: "You will be assigned as a team member to this work order.",
+                    icon: "info",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Assign Me",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                }).then((result) => {
+                    if (result) {
+                        @this.assignSelfToWorkOrder();
+                    }
+                });
+            });
             // Confirm Start Manhour
             Livewire.on('confirmStartManhour', () => {
                 swal({
@@ -829,6 +941,35 @@
 
         document.addEventListener('livewire:navigated', function() {
             // Duplicate event listeners for SPA navigation
+
+            // Confirm Assign Self
+            Livewire.on('confirmAssignSelf', () => {
+                swal({
+                    title: "Assign Yourself?",
+                    text: "You will be assigned as a team member to this work order.",
+                    icon: "info",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Assign Me",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                }).then((result) => {
+                    if (result) {
+                        @this.assignSelfToWorkOrder();
+                    }
+                });
+            });
             // Confirm Start Manhour
             Livewire.on('confirmStartManhour', () => {
                 swal({

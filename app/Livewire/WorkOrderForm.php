@@ -125,7 +125,7 @@ class WorkOrderForm extends Component
     public function mount()
     {
         $this->planner_groups = PlannerGroup::orderBy('name')->get();
-        $this->departments = Department::orderBy('name')->get();
+        $this->departments = Department::where('id', '!=', 1)->orderBy('name')->get();
 
         // Set default dates
         $this->notification_date = now()->format('Y-m-d\TH:i');

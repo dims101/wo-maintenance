@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class MaintenanceApproval extends Model
 {
@@ -47,5 +47,10 @@ class MaintenanceApproval extends Model
     public function mat()
     {
         return $this->belongsTo(Mat::class, 'mat_id');
+    }
+
+    public function teamAssignments()
+    {
+        return $this->hasMany(TeamAssignment::class, 'approval_id', 'id');
     }
 }

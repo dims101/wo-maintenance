@@ -20,5 +20,23 @@ class DepartmentSeeder extends Seeder
                 'manager_id' => null,
             ]
         );
+
+        Department::firstOrCreate(
+            ['name' => 'Produksi'],
+            [
+                'spv_id' => null,
+                'pic_id' => null,
+                'manager_id' => null,
+            ]
+        );
+
+        Department::firstOrCreate(
+            ['name' => 'QC'],
+            [
+                'spv_id' => null,
+                'pic_id' => null,
+                'manager_id' => null,
+            ]
+        );
     }
 }

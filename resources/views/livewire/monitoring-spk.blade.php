@@ -127,6 +127,11 @@
                                                             class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
                                                     @break
 
+                                                    @case('Rejected')
+                                                        <span
+                                                            class="badge badge-danger">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                    @break
+
                                                     @default
                                                         <span
                                                             class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
@@ -306,6 +311,12 @@
                                         value="{{ $selectedWorkOrder->equipment->functionalLocation->resource->name ?? '-' }}"
                                         readonly>
                                 </div>
+                                @if ($selectedWorkOrder->is_spv_rejected)
+                                    <div class="form-group">
+                                        <label class="strong">Reject Reason</label>
+                                        <textarea class="form-control" rows="3" readonly>{{ $selectedWorkOrder->spv_reject_reason ?? '-' }}</textarea>
+                                    </div>
+                                @endif
 
                                 @if ($selectedWorkOrder->revision_note)
                                     <div class="form-group">

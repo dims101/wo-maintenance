@@ -73,6 +73,9 @@
                                     <th>Action</th>
                                     <th>Status</th>
                                     <th>Notification Number</th>
+                                    <th>Functional Location</th>
+                                    <th>Work Description</th>
+                                    <th>Equipment</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -128,11 +131,20 @@
                                             <td>
                                                 {{ $workOrder->notification_number }}
                                             </td>
+                                            <td>
+                                                {{ $workOrder->equipment->functionalLocation->name }}
+                                            </td>
+                                            <td>
+                                                {{ $workOrder->work_desc }}
+                                            </td>
+                                            <td>
+                                                {{ $workOrder->equipment->name }}
+                                            </td>
                                         </tr>
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="3" class="text-center">
+                                        <td colspan="6" class="text-center">
                                             <div class="py-4">
                                                 <i class="fas fa-search fa-2x text-muted mb-3"></i>
                                                 <p class="text-muted">No work orders found</p>
@@ -289,16 +301,16 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
-                        @if ($this->isUserPic($selectedWorkOrder->id))
-                            <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                                data-target="#sparepartModal">Sparepart reservation</button>
-                            <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
-                                data-target="#progressModal">Update
-                                progress</button>
-                            <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
-                                data-target="#closeModal">Request to
-                                close</button>
-                        @endif
+                        {{-- @if ($this->isUserPic($selectedWorkOrder->id)) --}}
+                        <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
+                            data-target="#sparepartModal">Sparepart reservation</button>
+                        <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
+                            data-target="#progressModal">Update
+                            progress</button>
+                        <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
+                            data-target="#closeModal">Request to
+                            close</button>
+                        {{-- @endif --}}
                         {{-- START/STOP BUTTONS - Hanya muncul jika status = Planned dan user di-assign --}}
                         @if (
                             ($selectedWorkOrder->status === 'Planned' || $selectedWorkOrder->status === 'Need Revision') &&

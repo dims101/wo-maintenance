@@ -2,34 +2,60 @@
 
 namespace App\Livewire\Auth;
 
-use App\Models\Role;
-use App\Models\User;
-use Livewire\Component;
 use App\Models\Department;
 use App\Models\PlannerGroup;
+use App\Models\Role;
 use App\Models\RoleAssignment;
-use Livewire\Attributes\Title;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 
 #[Title('Register User')]
 class Register extends Component
 {
     public $subTitle = 'Register a new user';
+
     public $name;
+
     public $dept_id;
+
     public $nup;
+
     public $email;
+
     public $company;
+
     public $role_id;
+
     public $departments = [];
+
     public $roles = [];
+
     public $showEditModal = false;
+
     public $section;
+
     public $edit_section;
+
     public $editUserId;
-    public $edit_name, $edit_email, $edit_nup, $edit_dept_id, $edit_company, $edit_role_id;
+
+    public $edit_name;
+
+    public $edit_email;
+
+    public $edit_nup;
+
+    public $edit_dept_id;
+
+    public $edit_company;
+
+    public $edit_role_id;
+
     public $planner_group_id;
+
     public $planner_groups = [];
+
     public $edit_planner_group_id;
 
     public function mount()
@@ -77,21 +103,26 @@ class Register extends Component
 
             if ($roleId == 2) {
                 Department::findOrFail($deptId)->update([
-                    'manager_id' => $userId
+                    'manager_id' => $userId,
                 ]);
-            } else if ($roleId == 3) {
+            } elseif ($roleId == 3) {
                 Department::findOrFail($deptId)->update([
-                    'pic_id' => $userId
+                    'spv_id' => $userId,
+                ]);
+
+            } elseif ($roleId == 4) {
+                Department::findOrFail($deptId)->update([
+                    'pic_id' => $userId,
                 ]);
             }
         } catch (\Exception $e) {
             $this->dispatch('showAlert', [
                 'title' => 'Error!',
-                'message' => 'Failed to assign role. ' . $e->getMessage(),
-                'icon' => 'error'
+                'message' => 'Failed to assign role. '.$e->getMessage(),
+                'icon' => 'error',
             ]);
         }
-        return;
+
     }
 
     public function register()
@@ -121,12 +152,11 @@ class Register extends Component
             $this->reset(['name', 'dept_id', 'nup', 'email', 'company', 'role_id', 'section', 'planner_group_id']);
             $this->resetValidation();
 
-
             // Dispatch success event for SweetAlert
             $this->dispatch('userCreated', [
                 'title' => 'Success!',
                 'message' => 'User registered successfully.',
-                'icon' => 'success'
+                'icon' => 'success',
             ]);
 
             $this->dispatch('registerModalClosed');
@@ -138,8 +168,8 @@ class Register extends Component
         } catch (\Exception $e) {
             $this->dispatch('showAlert', [
                 'title' => 'Error!',
-                'message' => 'Registration failed. Please try again. ' . $e->getMessage(),
-                'icon' => 'error'
+                'message' => 'Registration failed. Please try again. '.$e->getMessage(),
+                'icon' => 'error',
             ]);
         }
     }
@@ -163,8 +193,8 @@ class Register extends Component
     {
         $rules = [
             'edit_name' => 'required|string|max:100',
-            'edit_email' => 'required|email|max:50|unique:users,email,' . $this->editUserId,
-            'edit_nup' => 'required|string|max:20|unique:users,nup,' . $this->editUserId,
+            'edit_email' => 'required|email|max:50|unique:users,email,'.$this->editUserId,
+            'edit_nup' => 'required|string|max:20|unique:users,nup,'.$this->editUserId,
             'edit_dept_id' => 'required|integer',
             'edit_section' => 'required|string|max:15',
             'edit_company' => 'required|string|max:50',
@@ -208,13 +238,13 @@ class Register extends Component
             $this->dispatch('userUpdated', [
                 'title' => 'Updated!',
                 'message' => 'User updated successfully.',
-                'icon' => 'success'
+                'icon' => 'success',
             ]);
         } catch (\Exception $e) {
             $this->dispatch('showAlert', [
                 'title' => 'Error!',
-                'message' => 'Failed to update user. Please try again. ' . $e->getMessage(),
-                'icon' => 'error'
+                'message' => 'Failed to update user. Please try again. '.$e->getMessage(),
+                'icon' => 'error',
             ]);
         }
     }
@@ -227,19 +257,20 @@ class Register extends Component
             $user->save();
             Department::where('manager_id', $id)->update(['manager_id' => null]);
             Department::where('pic_id', $id)->update(['pic_id' => null]);
+            Department::where('spv_id', $id)->update(['spv_id' => null]);
 
             $user->delete();
 
             $this->dispatch('userDeleted', [
                 'title' => 'Deleted!',
                 'message' => 'User deleted successfully.',
-                'icon' => 'success'
+                'icon' => 'success',
             ]);
         } catch (\Exception $e) {
             $this->dispatch('showAlert', [
                 'title' => 'Error!',
                 'message' => 'Failed to delete user. Please try again.',
-                'icon' => 'error'
+                'icon' => 'error',
             ]);
         }
     }
@@ -255,13 +286,13 @@ class Register extends Component
             $this->dispatch('userPasswordReset', [
                 'title' => 'Password Reset',
                 'message' => "Password for {$user->name} has been reset to their NUP.",
-                'icon' => 'success'
+                'icon' => 'success',
             ]);
         } catch (\Exception $e) {
             $this->dispatch('showAlert', [
                 'title' => 'Error!',
-                'message' => 'Failed to reset password. ' . $e->getMessage(),
-                'icon' => 'error'
+                'message' => 'Failed to reset password. '.$e->getMessage(),
+                'icon' => 'error',
             ]);
         }
     }
@@ -295,7 +326,7 @@ class Register extends Component
     public function render()
     {
         return view('livewire.auth.register', [
-            'users' => User::where('role_id', '!=', 1)->get()
+            'users' => User::where('role_id', '!=', 1)->get(),
         ]);
     }
 }

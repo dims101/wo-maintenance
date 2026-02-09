@@ -10,6 +10,7 @@ use App\Models\Sparepart;
 use App\Models\SparepartList;
 use App\Models\User;
 use App\Models\WorkOrder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Title;
@@ -449,10 +450,21 @@ class MonitoringSpk extends Component
 
     public function render()
     {
+        $isSpv = Auth::user()->role_id == 3 ? true : false;
+        $isUser = Auth::user()->role_id == 5 ? true : false;
+
         $query = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
             ->leftJoin('maintenance_approvals', 'maintenance_approvals.wo_id', 'work_orders.id')
-            ->where('is_spv_rejected', 'false')
+            // ->where('is_spv_rejected', 'false')
+            ->when($isSpv, function ($q) {
+                $q->where('req_dept_id', Auth::user()->dept_id);
+            })
+            ->when($isUser, function ($q) {
+                $q->where('req_user_id', Auth::user()->id);
+            })
             ->select('work_orders.*', 'maintenance_approvals.progress');
+
+        // Department::where('id', Auth::user()->dept_id)->value('spv_id')
 
         if ($this->search) {
             $query->where(function ($q) {

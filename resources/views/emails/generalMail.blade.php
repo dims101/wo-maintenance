@@ -1,14 +1,14 @@
 @component('mail::message')
-# {{ $sapaan }} {{ $nama }},
+    # {{ $sapaan }} {{ $nama }},
 
-{{ $isi }}
+    {{ $isi }}
+    {{ $reason }}
+    @if (!empty($link))
+        @component('mail::button', ['url' => $link])
+            Lihat Tautan
+        @endcomponent
+    @endif
 
-@if(!empty($link))
-@component('mail::button', ['url' => $link])
-Lihat Tautan
-@endcomponent
-@endif
-
-{{ $penutup }}  
-**{{ config('app.name') }}**
+    {{ $penutup }}
+    **{{ config('app.name') }}**
 @endcomponent

@@ -552,7 +552,8 @@
                 <form>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="reason">Reason:</label>
+                            <label
+                                for="reason">{{ $this->popupModalAction == 'receive' ? 'Delay notes' : 'Reason' }}</label>
                             <textarea wire:model='reason' name="reason" class="form-control" rows="3" required
                                 placeholder="Please provide a reason..."></textarea>
                         </div>

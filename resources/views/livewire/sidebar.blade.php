@@ -60,30 +60,36 @@
                         <p>Monitoring SPK</p>
                     </a>
                 </li>
-                <li class="nav-item {{ request()->routeIs('work-order.spv-approval') ? 'active' : '' }}">
-                    <a href="{{ route('work-order.spv-approval') }}" wire:navigate>
-                        <i class="fas fa-clipboard-check"></i>
-                        <p>SPK For Approval User</p>
-                    </a>
-                </li>
+                @if (!in_array(auth()->user()->role_id, [4, 5]))
+                    <li class="nav-item {{ request()->routeIs('work-order.spv-approval') ? 'active' : '' }}">
+                        <a href="{{ route('work-order.spv-approval') }}" wire:navigate>
+                            <i class="fas fa-clipboard-check"></i>
+                            <p>SPK For Approval User</p>
+                        </a>
+                    </li>
+                @endif
                 <li class="nav-item {{ request()->routeIs('work-order.assigned') ? 'active' : '' }}">
                     <a href="{{ route('work-order.assigned') }}" wire:navigate>
                         <i class="fas fa-tasks"></i>
                         <p>List SPK Assigned</p>
                     </a>
                 </li>
-                <li class="nav-item {{ request()->routeIs('sparepart.order') ? 'active' : '' }}">
-                    <a href="{{ route('sparepart.order') }}" wire:navigate>
-                        <i class="fas fa-cogs"></i>
-                        <p>List of Sparepart Order</p>
-                    </a>
-                </li>
-                <li class="nav-item {{ request()->routeIs('register.team') ? 'active' : '' }}">
-                    <a href="{{ route('register.team') }}" wire:navigate>
-                        <i class="fas fa-users"></i>
-                        <p>List of Registered Member</p>
-                    </a>
-                </li>
+                @if (auth()->user()->dept_id == 4)
+                    <li class="nav-item {{ request()->routeIs('sparepart.order') ? 'active' : '' }}">
+                        <a href="{{ route('sparepart.order') }}" wire:navigate>
+                            <i class="fas fa-cogs"></i>
+                            <p>List of Sparepart Order</p>
+                        </a>
+                    </li>
+                @endif
+                @if (in_array(auth()->user()->role_id, [2, 4]))
+                    <li class="nav-item {{ request()->routeIs('register.team') ? 'active' : '' }}">
+                        <a href="{{ route('register.team') }}" wire:navigate>
+                            <i class="fas fa-users"></i>
+                            <p>List of Registered Member</p>
+                        </a>
+                    </li>
+                @endif
                 <li class="nav-item {{ request()->routeIs('pm') ? 'active' : '' }}">
                     <a href="{{ route('pm') }}" wire:navigate>
                         <i class="fas fa-wrench"></i>

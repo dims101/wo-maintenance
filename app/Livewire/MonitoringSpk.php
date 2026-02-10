@@ -450,17 +450,32 @@ class MonitoringSpk extends Component
 
     public function render()
     {
-        $isSpv = Auth::user()->role_id == 3 ? true : false;
+        $isSpvProduksi = Auth::user()->dept_id == 2 && Auth::user()->role_id == 3 ? true : false;
         $isUser = Auth::user()->role_id == 5 ? true : false;
+        $isSpvMaintenance = Auth::user()->dept_id == 1 && Auth::user()->role_id == 3 ? true : false;
+        $isQC = Auth::user()->dept_id == 3 ? true : false;
 
         $query = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
             ->leftJoin('maintenance_approvals', 'maintenance_approvals.wo_id', 'work_orders.id')
-            // ->where('is_spv_rejected', 'false')
-            ->when($isSpv, function ($q) {
-                $q->where('req_dept_id', Auth::user()->dept_id);
-            })
-            ->when($isUser, function ($q) {
-                $q->where('req_user_id', Auth::user()->id);
+            ->where(function ($q) use ($isQC, $isSpvMaintenance, $isSpvProduksi, $isUser) {
+
+                if ($isQC) {
+                    // QC lihat semua SPK produksi
+                    $q->where('req_dept_id', 2);
+
+                } elseif ($isSpvMaintenance) {
+                    // SPV maintenance
+                    $q->where('planner_group_id', Auth::user()->planner_group_id);
+
+                } elseif ($isSpvProduksi) {
+                    // SPV produksi
+                    $q->where('req_dept_id', Auth::user()->dept_id);
+
+                } elseif ($isUser) {
+                    // User biasa
+                    $q->where('req_user_id', Auth::user()->id);
+                }
+
             })
             ->select('work_orders.*', 'maintenance_approvals.progress');
 

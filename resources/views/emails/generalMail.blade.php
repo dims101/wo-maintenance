@@ -2,7 +2,11 @@
     # {{ $sapaan }} {{ $nama }},
 
     {{ $isi }}
-    {{ $reason }}
+
+    @if (!empty($reason))
+        <strong>{{ $reason }}</strong>
+    @endif
+
     @if (!empty($link))
         @component('mail::button', ['url' => $link])
             Lihat Tautan

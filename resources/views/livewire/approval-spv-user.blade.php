@@ -505,8 +505,7 @@
                                         <div class="form-group">
                                             <label class="strong">Start Date Time <span
                                                     class="text-danger">*</span></label>
-                                            <input type="datetime-local" class="form-control"
-                                                wire:model="startDateTime"
+                                            <input type="date" class="form-control" wire:model="startDateTime"
                                                 {{ $isPgComplete == true ? 'readonly' : '' }}>
                                         </div>
                                     </div>
@@ -515,8 +514,7 @@
                                         <div class="form-group">
                                             <label class="strong">Finish Date Time <span
                                                     class="text-danger">*</span></label>
-                                            <input type="datetime-local" class="form-control"
-                                                wire:model="finishDateTime"
+                                            <input type="date" class="form-control" wire:model="finishDateTime"
                                                 {{ $isPgComplete == true ? 'readonly' : '' }}>
                                         </div>
                                     </div>

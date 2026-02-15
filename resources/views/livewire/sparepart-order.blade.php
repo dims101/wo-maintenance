@@ -164,7 +164,8 @@
                                             <thead class="thead-light">
                                                 <tr>
                                                     <th width="50">No</th>
-                                                    <th>No Material</th>
+                                                    <th>Requested Sparepart</th>
+                                                    <th>Barcode</th>
                                                     <th width="100">Quantity</th>
                                                     <th width="80">UOM</th>
                                                 </tr>
@@ -173,13 +174,14 @@
                                                 @forelse ($sparepartDetails as $index => $detail)
                                                     <tr>
                                                         <td>{{ $index + 1 }}</td>
-                                                        <td>{{ $detail->sparepart->code ?? '-' }}</td>
+                                                        <td>{{ $detail->requested_sparepart ?? '-' }}</td>
+                                                        <td>{{ $detail->barcode ?? '-' }}</td>
                                                         <td>{{ $detail->qty ?? '-' }}</td>
                                                         <td>{{ $detail->uom ?? '-' }}</td>
                                                     </tr>
                                                 @empty
                                                     <tr>
-                                                        <td colspan="4" class="text-center text-muted">
+                                                        <td colspan="5" class="text-center text-muted">
                                                             <i class="fas fa-info-circle mr-2"></i>
                                                             No sparepart details found for this work order.
                                                         </td>
@@ -196,52 +198,51 @@
                                 <div class="col-md-12">
                                     <h6 class="mb-3">
                                         <i class="fas fa-list-alt mr-2"></i>
-                                        Requested Items ({{ $sparepartDetails->count() }} items)
+                                        Requested Spareparts ({{ $sparepartDetails->count() }} items)
                                     </h6>
 
-                                    @foreach ($sparepartDetails as $index => $detail)
-                                        <div class="form-group">
-                                            <label>Request Item {{ $index + 1 }}</label>
-                                            <div class="input-group">
-                                                <input type="text" class="form-control" readonly
-                                                    value="{{ $detail->sparepart->code ?? $detail->barcode }} - Qty: {{ $detail->qty }} {{ $detail->uom }}"
-                                                    style="background-color: #e9ecef;">
-                                                <div class="input-group-append">
-                                                    <button class="btn btn-primary" type="button"
-                                                        wire:click="openScanModal({{ $index }})"
-                                                        title="Scan Barcode">
-                                                        <i class="fas fa-plus"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-
-                                    <!-- Reference Table -->
-                                    <hr class="my-4">
-                                    <h6 class="mb-3">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        Sparepart Details Reference
-                                    </h6>
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-bordered">
+                                        <table class="table table-striped table-hover table-borderless">
                                             <thead class="thead-light">
                                                 <tr>
                                                     <th width="50">No</th>
-                                                    <th>No Material</th>
+                                                    <th>Requested Sparepart</th>
+                                                    <th>Barcode</th>
                                                     <th width="100">Quantity</th>
                                                     <th width="80">UOM</th>
+                                                    <th width="100">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach ($sparepartDetails as $index => $detail)
+                                                @forelse ($sparepartDetails as $index => $detail)
                                                     <tr>
                                                         <td>{{ $index + 1 }}</td>
-                                                        <td>{{ $detail->sparepart->code ?? '-' }}</td>
-                                                        <td>{{ $detail->qty }}</td>
-                                                        <td>{{ $detail->uom }}</td>
+                                                        <td>{{ $detail->requested_sparepart ?? '-' }}</td>
+                                                        <td>
+                                                            @if ($detail->barcode)
+                                                                {{ $detail->barcode }}
+                                                            @else
+                                                                Not Set
+                                                            @endif
+                                                        </td>
+                                                        <td>{{ $detail->qty ?? '-' }}</td>
+                                                        <td>{{ $detail->uom ?? '-' }}</td>
+                                                        <td>
+                                                            <button type="button" class="btn btn-sm btn-primary"
+                                                                wire:click="openAddBarcodeModal({{ $detail->id }})"
+                                                                title="Add/Edit Barcode">
+                                                                <i class="fas fa-plus"></i> Add
+                                                            </button>
+                                                        </td>
                                                     </tr>
-                                                @endforeach
+                                                @empty
+                                                    <tr>
+                                                        <td colspan="6" class="text-center text-muted">
+                                                            <i class="fas fa-info-circle mr-2"></i>
+                                                            No sparepart details found for this work order.
+                                                        </td>
+                                                    </tr>
+                                                @endforelse
                                             </tbody>
                                         </table>
                                     </div>
@@ -257,8 +258,8 @@
 
                         <!-- Tombol Submit hanya muncul di mode edit -->
                         @if ($modalMode === 'edit')
-                            <button type="button" class="btn btn-pill btn-success">
-                                <i class="fas fa-check mr-2"></i>Submit Data
+                            <button type="button" class="btn btn-pill btn-success" wire:click="confirmSubmit">
+                                <i class="fas fa-check mr-2"></i>Submit Order
                             </button>
                         @endif
                     </div>
@@ -267,7 +268,7 @@
         </div>
     @endif
 
-    <!-- Scan Barcode Modal -->
+    <!-- Add Barcode Modal -->
     @if ($showScanModal)
         <div wire:ignore.self class="modal fade" id="scanModal" tabindex="-1" role="dialog"
             data-backdrop="static">
@@ -275,32 +276,61 @@
                 <div class="modal-content shadow-lg">
                     <div class="modal-header bg-primary">
                         <h5 class="modal-title text-white">
-                            <i class="fas fa-barcode mr-2"></i>Scan Barcode
+                            <i class="fas fa-barcode mr-2"></i>Add Barcode Mapping
                         </h5>
                         <button type="button" class="close text-white" wire:click="closeScanModal">
                             <span>&times;</span>
                         </button>
                     </div>
                     <div class="modal-body">
+                        <!-- Search Barcode Field -->
                         <div class="form-group">
-                            <label for="scannedBarcode">No Material</label>
-                            <input type="text" class="form-control" id="scannedBarcode"
-                                wire:model="scannedBarcode" placeholder="Autofill setelah discan">
+                            <label for="sparepartSearch">Search Barcode / Code / Name <span
+                                    class="text-danger">*</span></label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="sparepartSearch"
+                                    wire:model.live="sparepartSearch" wire:input="searchSparepartByBarcode"
+                                    placeholder="Type at least 3 characters..." autocomplete="off">
+
+                                @if (!empty($sparepartSearchResults))
+                                    <div class="dropdown-menu show w-100"
+                                        style="max-height: 200px; overflow-y: auto;">
+                                        @foreach ($sparepartSearchResults as $sparepart)
+                                            <button type="button" class="dropdown-item"
+                                                onmousedown="event.preventDefault();"
+                                                wire:click="selectSparepart({{ $sparepart->id }})">
+                                                <strong>{{ $sparepart->barcode }}</strong> - {{ $sparepart->name }}
+                                                <br>
+                                                <small class="text-muted">Code: {{ $sparepart->code }} | Stock:
+                                                    {{ $sparepart->stock }} {{ $sparepart->uom }}</small>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                            <small class="form-text text-muted">Search and select sparepart from master data</small>
+                        </div>
+
+                        <!-- Selected Barcode (Read-only) -->
+                        <div class="form-group">
+                            <label for="editBarcode">Selected Barcode</label>
+                            <input type="text" class="form-control" id="editBarcode" wire:model="editBarcode"
+                                readonly style="background-color: #e9ecef;" placeholder="Select from search above">
                         </div>
 
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="scannedQuantity">Quantity</label>
-                                    <input type="number" class="form-control" id="scannedQuantity"
-                                        wire:model="scannedQuantity" placeholder="Masukan QTY" step="0.01">
+                                    <label for="editQuantity">Quantity <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="editQuantity"
+                                        wire:model="editQuantity" placeholder="Enter quantity" min="0">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="scannedUom">UOM</label>
-                                    <input type="text" class="form-control" id="scannedUom"
-                                        wire:model="scannedUom" placeholder="Masukan UOM">
+                                    <label for="editUom">UOM</label>
+                                    <input type="text" class="form-control" id="editUom" wire:model="editUom"
+                                        readonly style="background-color: #e9ecef;" placeholder="Auto-filled">
                                 </div>
                             </div>
                         </div>
@@ -309,8 +339,8 @@
                         <button type="button" class="btn btn-pill btn-secondary" wire:click="closeScanModal">
                             <i class="fas fa-times mr-2"></i>Close
                         </button>
-                        <button type="button" class="btn btn-pill btn-success">
-                            <i class="fas fa-save mr-2"></i>Save Data
+                        <button type="button" class="btn btn-pill btn-success" wire:click="saveBarcodeMapping">
+                            <i class="fas fa-save mr-2"></i>Save
                         </button>
                     </div>
                 </div>
@@ -370,6 +400,36 @@
             $('#scanModal').on('shown.bs.modal', function() {
                 $('body').addClass('modal-open');
             });
+
+            // Confirm Submit Order
+            Livewire.on('confirmSubmitOrder', () => {
+                swal({
+                    title: "Submit Sparepart Order?",
+                    text: "This will reduce stock from master sparepart data. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.submitSparepartOrder();
+                    }
+                });
+            });
         });
 
         document.addEventListener('livewire:navigated', function() {
@@ -392,6 +452,36 @@
 
             Livewire.on('closeScanModal', () => {
                 $('#scanModal').modal('hide');
+            });
+
+            // Confirm Submit Order
+            Livewire.on('confirmSubmitOrder', () => {
+                swal({
+                    title: "Submit Sparepart Order?",
+                    text: "This will reduce stock from master sparepart data. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.submitSparepartOrder();
+                    }
+                });
             });
         });
     </script>

@@ -72,14 +72,42 @@ class ApprovalSpvUser extends Component
         $this->teamMembers = [''];
     }
 
+    private function getWorkDate()
+    {
+        $now = now()->setTimezone(config('app.timezone'));
+
+        $hour = (int) $now->format('H');
+
+        // Jika jam 00:00 - 06:59 → masih dianggap tanggal kemarin
+        if ($hour < 7) {
+            return $now->copy()->subDay()->toDateString();
+        }
+
+        return $now->toDateString();
+    }
+
     public function loadDropdownData()
     {
         $this->orderTypes = Order::all();
         $this->mats = Mat::all();
+        $workDate = $this->getWorkDate();
+
         $this->users = User::where('role_id', 5)
             ->where('planner_group_id', Auth::user()->planner_group_id)
             ->where('status', 'Active')
+            ->whereRaw('
+        COALESCE(
+            (
+                SELECT SUM(actual_time)
+                FROM actual_manhours
+                WHERE actual_manhours.user_id = users.id
+                AND date = ?
+                AND actual_manhours.deleted_at IS NULL
+            ),
+        0) < 420
+    ', [$workDate])
             ->get(['id', 'name']);
+
     }
 
     public function updatedSelectedOrderType()
@@ -802,8 +830,29 @@ class ApprovalSpvUser extends Component
             });
         }
 
-        if (Auth::user()->dept_id != 1) {
-            $query->where('req_dept_id', Auth::user()->dept_id);
+        $user = Auth::user();
+
+        if ($user->dept_id != 1) {
+            $query->where('req_dept_id', $user->dept_id)
+                ->where('status', 'Waiting for SPV Approval');
+        }
+
+        if ($user->dept_id == 1) {
+            $query->where(function ($q) use ($user) {
+
+                // 1️⃣ Waiting for Maintenance Approval sesuai planner group
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('planner_group_id', $user->planner_group_id)
+                        ->where('status', 'Waiting for Maintenance Approval');
+                })
+
+                // 2️⃣ Requested to change planner group
+                    ->orWhere(function ($sub) use ($user) {
+                        $sub->where('status', 'Requested to change planner group')
+                            ->where('planner_group_id', '!=', $user->planner_group_id);
+                    });
+
+            });
         }
 
         $workOrders = $query->orderBy('created_at', 'desc')

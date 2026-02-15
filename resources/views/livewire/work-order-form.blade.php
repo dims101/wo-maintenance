@@ -280,12 +280,10 @@
 
                             <div class="col-md-4 mb-3">
                                 <label class="form-label mb-2">* Department Requester</label>
-                                <select wire:model.live="req_dept_id"
-                                    class="custom-select @error('req_dept_id') is-invalid @enderror">
-                                    <option value="">-- Pilih Department --</option>
-                                    @foreach ($departments as $department)
-                                        <option value="{{ $department->id }}">{{ $department->name }}</option>
-                                    @endforeach
+                                <select wire:model="req_dept_id"
+                                    class="custom-select @error('req_dept_id') is-invalid @enderror" disabled>
+                                    <option value="{{ auth()->user()->dept_id }}">
+                                        {{ auth()->user()->department->name }}</option>
                                 </select>
                                 @error('req_dept_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -295,19 +293,12 @@
                             {{-- Row 6 --}}
                             <div class="col-md-4 mb-3">
                                 <label class="form-label mb-2">* Requester Name</label>
-                                <select wire:model.live="req_user_id"
-                                    class="custom-select @error('req_user_id') is-invalid @enderror"
-                                    @disabled(!$req_dept_id)>
-                                    <option value="">-- Pilih Requester --</option>
-                                    @foreach ($requesters as $user)
-                                        <option value="{{ $user->id }}">
-                                            {{ $user->name }} ({{ $user->email }})
-                                        </option>
-                                    @endforeach
+                                <select wire:model="req_user_id"
+                                    class="custom-select @error('req_user_id') is-invalid @enderror" disabled>
+                                    <option value="{{ auth()->user()->id }}">
+                                        {{ auth()->user()->name }} ({{ auth()->user()->email }})
+                                    </option>
                                 </select>
-                                @if (!$req_dept_id)
-                                    <div class="text-muted small mt-1">Pilih department terlebih dahulu</div>
-                                @endif
                                 @error('req_user_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror

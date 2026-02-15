@@ -69,4 +69,14 @@ class WorkOrder extends Model
     {
         return $this->hasOne(MaintenanceApproval::class, 'wo_id', 'id');
     }
+
+    public function sparepartList()
+    {
+        return $this->hasMany(SparepartList::class, 'wo_id', 'id');
+    }
+
+    public function actualManhours()
+    {
+        return $this->hasMany(ActualManhour::class, 'wo_id', 'id');
+    }
 }

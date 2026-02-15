@@ -6,8 +6,6 @@ use App\Mail\SendGeneralMail;
 use App\Models\ActivityList;
 use App\Models\ActualManhour;
 use App\Models\MaintenanceApproval;
-use App\Models\Order;
-use App\Models\Sparepart;
 use App\Models\SparepartList;
 use App\Models\TeamAssignment;
 use App\Models\User;
@@ -57,18 +55,18 @@ class AssignedSpk extends Component
 
     public $sparepartItems = [];
 
-    public $sparepartSearch = [];
-
-    public $sparepartResults = [];
-
     public $users = [];
+
+    public $isSparepartReserved = null;
+
+    public $isBeingWorked = null;
 
     protected $paginationTheme = 'bootstrap';
 
     public function mount()
     {
         $this->loadDropdownData();
-        $this->sparepartItems = [['sparepart_id' => '', 'quantity' => '']];
+        $this->sparepartItems = [['requested_sparepart' => '', 'quantity' => '', 'is_completed' => false]];
         $this->checkActiveSession();
     }
 
@@ -333,90 +331,38 @@ class AssignedSpk extends Component
 
     public function addSparepartItem()
     {
-        $this->sparepartItems[] = ['sparepart_id' => '', 'quantity' => ''];
+        $this->sparepartItems[] = [
+            'requested_sparepart' => '',
+            'quantity' => '',
+            'is_completed' => false,
+        ];
     }
 
     public function removeSparepartItem($index)
     {
-
-        // if ($index > 0 && count($this->sparepartItems) > 1) {
-        unset($this->sparepartItems[$index]);
-        unset($this->sparepartResults[$index]);
-        unset($this->sparepartSearch[$index]);
-        $this->sparepartItems = array_values($this->sparepartItems);
-        // dd($this->sparepartItems);
-        // }
-    }
-
-    public function searchSpareparts($index, $query)
-    {
-        // Only search when 3+ characters
-        if (strlen($query) < 3) {
-            $this->sparepartResults[$index] = [];
+        // Cek apakah item sudah completed
+        if (isset($this->sparepartItems[$index]['is_completed']) &&
+            $this->sparepartItems[$index]['is_completed']) {
+            session()->flash('error', 'Cannot remove completed sparepart.');
 
             return;
         }
 
-        // Get already selected sparepart IDs to exclude
-        $selectedIds = array_filter(array_column($this->sparepartItems, 'sparepart_id'));
-
-        $results = Sparepart::where(function ($q) use ($query) {
-            $q->where('name', 'ilike', '%'.$query.'%')
-                ->orWhere('code', 'ilike', '%'.$query.'%')
-                ->orWhere('barcode', 'ilike', '%'.$query.'%');
-        })
-            ->whereNotIn('id', $selectedIds)
-            ->limit(10)
-            ->get(['id', 'code', 'name', 'uom']);
-
-        $this->sparepartResults[$index] = $results->toArray();
-    }
-
-    // public function focusSparepart($index)
-    // {
-    //     // Only show initial results if input is empty
-    //     if (empty($this->sparepartSearch[$index])) {
-    //         $this->showInitialSpareparts($index);
-    //     }
-    // }
-
-    // public function showInitialSpareparts($index)
-    // {
-    //     // Get already selected sparepart IDs to exclude
-    //     $selectedIds = array_filter(array_column($this->sparepartItems, 'sparepart_id'));
-
-    //     $results = Sparepart::whereNotIn('id', $selectedIds)
-    //         ->limit(5)
-    //         ->get(['id', 'code', 'name', 'uom']);
-
-    //     $this->sparepartResults[$index] = $results->toArray();
-    //     // Don't set isSearching to true here
-    // }
-
-    public function selectSparepart($index, $sparepartId)
-    {
-        $sparepart = Sparepart::find($sparepartId);
-        if ($sparepart) {
-            $this->sparepartItems[$index]['sparepart_id'] = $sparepartId;
-            $this->sparepartSearch[$index] = $sparepart->code.' - '.$sparepart->name;
-            $this->sparepartResults[$index] = []; // Clear dropdown
-        }
-    }
-
-    public function hideSparepartDropdown($index)
-    {
-        $this->sparepartResults[$index] = [];
+        unset($this->sparepartItems[$index]);
+        $this->sparepartItems = array_values($this->sparepartItems);
     }
 
     public function submitSparepart()
     {
-        // Validation
+        // Validation - hanya validasi item yang belum completed
         $validItems = array_filter($this->sparepartItems, function ($item) {
-            return ! empty($item['sparepart_id']) && ! empty($item['quantity']);
+            $isCompleted = isset($item['is_completed']) && $item['is_completed'];
+
+            return ! $isCompleted && ! empty($item['requested_sparepart']) && ! empty($item['quantity']);
         });
 
         if (empty($validItems)) {
-            session()->flash('error', 'Please add at least one sparepart with quantity.');
+            session()->flash('error', 'Please add at least one new sparepart with quantity.');
 
             return;
         }
@@ -427,24 +373,28 @@ class AssignedSpk extends Component
 
     public function saveSparepartReservation()
     {
+        // Filter hanya item yang belum completed
         $validItems = array_filter($this->sparepartItems, function ($item) {
-            return ! empty($item['sparepart_id']) && ! empty($item['quantity']);
+            $isCompleted = isset($item['is_completed']) && $item['is_completed'];
+
+            return ! $isCompleted && ! empty($item['requested_sparepart']) && ! empty($item['quantity']);
         });
 
         try {
             DB::beginTransaction();
 
-            // Delete existing sparepart lists for this work order
-            // SparepartList::where('wo_id', $this->selectedWorkOrderId)->delete();
-
-            // Create new sparepart lists
+            // Create new sparepart lists (hanya yang baru, skip yang sudah ada ID)
             foreach ($validItems as $item) {
-                $sparepart = Sparepart::find($item['sparepart_id']);
+                if (isset($item['id'])) {
+                    continue; // Skip item yang sudah tersimpan sebelumnya
+                }
+
                 SparepartList::create([
                     'wo_id' => $this->selectedWorkOrderId,
-                    'barcode' => $sparepart->barcode,
+                    'barcode' => null,
+                    'requested_sparepart' => $item['requested_sparepart'],
                     'qty' => $item['quantity'],
-                    'uom' => $sparepart->uom,
+                    'uom' => null,
                     'is_completed' => false,
                     'planner_group_id' => $this->selectedWorkOrder->planner_group_id,
                 ]);
@@ -464,7 +414,6 @@ class AssignedSpk extends Component
     public function resetSparepartModal()
     {
         $this->loadSparepartItems();
-        $this->sparepartResults = [];
     }
 
     public function loadActivityLists()
@@ -609,9 +558,10 @@ class AssignedSpk extends Component
     public function openDetailModal($workOrderId)
     {
         $this->selectedWorkOrderId = $workOrderId;
+        $this->isSparepartReserved = WorkOrder::where('id', $workOrderId)->whereHas('sparepartList')->exists();
+        $this->isBeingWorked = WorkOrder::where('id', $workOrderId)->whereHas('actualManhours')->exists();
         $this->selectedWorkOrder = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user', 'plannerGroup'])
             ->find($workOrderId);
-
         $this->loadActivityLists();
         $this->loadSparepartItems();
         $this->checkActiveSession();
@@ -620,35 +570,33 @@ class AssignedSpk extends Component
 
     public function loadSparepartItems()
     {
-        $savedItems = SparepartList::where('wo_id', $this->selectedWorkOrderId)->get();
+        $savedItems = SparepartList::where('wo_id', $this->selectedWorkOrderId)
+            ->whereNotNull('requested_sparepart')
+            ->get();
 
         if ($savedItems->isNotEmpty()) {
             $this->sparepartItems = [];
-            $this->sparepartSearch = [];
 
             foreach ($savedItems as $item) {
-                $sparepart = Sparepart::where('barcode', $item->barcode)->first();
-                if ($sparepart) {
-                    $this->sparepartItems[] = [
-                        'sparepart_id' => $sparepart->id,
-                        'quantity' => $item->qty,
-                    ];
-                    $this->sparepartSearch[] = $sparepart->code.' - '.$sparepart->name;
-                }
+                $this->sparepartItems[] = [
+                    'id' => $item->id,
+                    'requested_sparepart' => $item->requested_sparepart,
+                    'quantity' => $item->qty,
+                    'is_completed' => $item->is_completed ?? false,
+                ];
             }
         } else {
             // Reset to default empty state
-            $this->sparepartItems = [['sparepart_id' => '', 'quantity' => '']];
-            $this->sparepartSearch = [];
+            $this->sparepartItems = [['requested_sparepart' => '', 'quantity' => '', 'is_completed' => false]];
         }
-
-        $this->sparepartResults = [];
     }
 
     public function closeModal()
     {
         $this->selectedWorkOrderId = null;
         $this->selectedWorkOrder = null;
+        $this->isSparepartReserved = null;
+        $this->isBeingWorked = null;
         $this->reason = '';
     }
 
@@ -743,13 +691,6 @@ class AssignedSpk extends Component
 
             $this->dispatch('closeAllModals');
             session()->flash('message', "Work Order's close request successfully submitted");
-        }
-    }
-
-    public function clearAllDropdowns()
-    {
-        foreach ($this->sparepartResults as $index => $result) {
-            $this->sparepartResults[$index] = [];
         }
     }
 

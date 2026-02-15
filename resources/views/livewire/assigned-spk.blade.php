@@ -27,43 +27,34 @@
 
                     <!-- Header Controls -->
                     <div class="row mb-3">
-                        <!-- Show Entries Dropdown -->
-                        <div class="col-md-5">
-                            <div class="d-flex align-items-center">
+                        <div class="col-12 col-md-4 mb-2">
+                            <div class="d-flex flex-wrap align-items-center">
                                 <span class="mr-2">Show</span>
-                                <select wire:model.live="perPage" class="form-control"
-                                    style="width: auto; display: inline-block;">
+                                <select wire:model.live="perPage" class="form-control form-control-sm w-auto">
                                     <option value="10">10</option>
                                     <option value="25">25</option>
                                     <option value="50">50</option>
                                     <option value="100">100</option>
                                 </select>
                                 <span class="ml-2">entries</span>
+                            </div>
+                        </div>
 
-                            </div>
+                        <div class="col-12 col-md-4 mb-2 text-md-center text-left">
+                            @if ($this->canShowAllWorkOrderButton())
+                                <button type="button" class="btn btn-primary btn-sm btn-block btn-md-inline-block"
+                                    wire:click="openAllWorkOrdersModal">
+                                    <i class="fas fa-list"></i> All Work Orders
+                                </button>
+                            @endif
                         </div>
-                        <div class="col-md-5 pr-0 mr-0">
-                            <div class="d-flex align-items-center justify-content-end">
-                                <div class="form-group mb-0">
-                                    @if ($this->canShowAllWorkOrderButton())
-                                        <button type="button" class="btn btn-primary btn-sm mt-1"
-                                            wire:click="openAllWorkOrdersModal">
-                                            <i class="fas fa-list"></i> All Work Orders
-                                        </button>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Search Box -->
-                        <div class="col-md-2">
-                            <div class="d-flex justify-content-end">
-                                <div class="form-group mb-0" style="width: 250px;">
-                                    <input type="text" wire:model.live.debounce.300ms="search" class="form-control"
-                                        placeholder="Search...">
-                                </div>
-                            </div>
+
+                        <div class="col-12 col-md-4 mb-2">
+                            <input type="text" wire:model.live.debounce.300ms="search"
+                                class="form-control form-control-sm" placeholder="Search...">
                         </div>
                     </div>
+
 
                     <!-- Table -->
                     <div class="table-responsive">
@@ -298,17 +289,17 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
+                    <div class="modal-footer d-flex flex-wrap justify-content-end">
+                        <button type="button" class="btn mb-2 btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
                         {{-- @if ($this->isUserPic($selectedWorkOrder->id)) --}}
-                        <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
+                        <button type="button" class="btn mb-2 btn-info btn-pill" data-toggle="modal"
                             data-target="#sparepartModal">Sparepart reservation</button>
-                        <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
-                            data-target="#progressModal">Update
+                        <button type="button" class="btn mb-2 btn-warning btn-pill" data-toggle="modal"
+                            data-target="#progressModal" @disabled(!$isSparepartReserved && !$isBeingWorked)>Update
                             progress</button>
-                        <button type="button" class="btn btn-success btn-pill" data-toggle="modal"
-                            data-target="#closeModal">Request to
+                        <button type="button" class="btn mb-2 btn-success btn-pill" data-toggle="modal"
+                            data-target="#closeModal" @disabled(!$isSparepartReserved && !$isBeingWorked)>Request to
                             close</button>
                         {{-- @endif --}}
                         {{-- START/STOP BUTTONS - Hanya muncul jika status = Planned dan user di-assign --}}
@@ -318,7 +309,8 @@
                             @if ($activeSessionUser)
                                 @if ($activeSessionUser->wo_id == $selectedWorkOrder->id)
                                     {{-- Tombol STOP jika sedang running untuk WO INI --}}
-                                    <button type="button" class="btn btn-danger btn-pill" wire:click="confirmStop">
+                                    <button type="button" class="btn mb-2 btn-danger btn-pill"
+                                        wire:click="confirmStop">
                                         <i class="fas fa-stop-circle"></i> Stop Work
                                         <span class="badge badge-light">{{ $this->getActiveDuration() }}</span>
                                     </button>
@@ -327,7 +319,7 @@
                                     @php
                                         $activeWO = \App\Models\WorkOrder::find($activeSessionUser->wo_id);
                                     @endphp
-                                    <button type="button" class="btn btn-warning btn-pill" disabled
+                                    <button type="button" class="btn mb-2 btn-warning btn-pill" disabled
                                         title="Currently working on {{ $activeWO->notification_number }}">
                                         <i class="fas fa-exclamation-triangle"></i> Active on
                                         {{ $activeWO->notification_number }}
@@ -335,7 +327,7 @@
                                 @endif
                             @else
                                 {{-- Tombol START jika tidak ada session aktif sama sekali --}}
-                                <button type="button" class="btn btn-success btn-pill"
+                                <button type="button" class="btn mb-2 btn-success btn-pill"
                                     wire:click="confirmStart({{ $selectedWorkOrder->id }})">
                                     <i class="fas fa-play-circle"></i> Start Work
                                 </button>
@@ -369,64 +361,45 @@
                                                 class="text-danger">*</span></label>
                                     </div>
                                     @foreach ($sparepartItems as $index => $item)
-                                        <div class="row mb-3">
-                                            <div class="col-md-7">
-                                                <div class="position-relative">
-                                                    <input type="text" class="form-control"
-                                                        placeholder="Search sparepart..."
-                                                        wire:model.live="sparepartSearch.{{ $index }}"
-                                                        wire:input="searchSpareparts({{ $index }}, $event.target.value)"
-                                                        autocomplete="off" id="sparepart-input-{{ $index }}">
+                                        <div class="row mb-3 align-items-center">
+                                            <div class="col-1 pr-1 d-flex align-items-center justify-content-center">
+                                                @if (isset($sparepartItems[$index]['is_completed']) && $sparepartItems[$index]['is_completed'])
+                                                    <i class="fas fa-check-circle text-success"
+                                                        style="font-size: 1.2rem;" title="Completed"></i>
+                                                @else
+                                                    <i class="fas fa-circle text-muted"
+                                                        style="font-size: 1.2rem; opacity: 0.2;"></i>
+                                                @endif
+                                            </div>
 
-                                                    @if (isset($sparepartResults[$index]))
-                                                        @if (!empty($sparepartResults[$index]))
-                                                            <div class="dropdown-menu show w-100"
-                                                                style="max-height: 200px; overflow-y: auto;"
-                                                                id="dropdown-{{ $index }}">
-                                                                @foreach ($sparepartResults[$index] as $sparepart)
-                                                                    <button type="button" class="dropdown-item"
-                                                                        onmousedown="event.preventDefault();"
-                                                                        wire:click="selectSparepart({{ $index }}, {{ $sparepart['id'] }})">
-                                                                        {{ $sparepart['code'] }} -
-                                                                        {{ $sparepart['name'] }}
-                                                                    </button>
-                                                                @endforeach
-                                                            </div>
-                                                        @elseif(isset($sparepartSearch[$index]) &&
-                                                                strlen($sparepartSearch[$index]) >= 3 &&
-                                                                !$this->sparepartItems[$index]['sparepart_id']
-                                                        )
-                                                            <div class="dropdown-menu show w-100"
-                                                                id="dropdown-{{ $index }}">
-                                                                <div class="dropdown-item-text text-muted">
-                                                                    <i class="fas fa-exclamation-circle"></i> Sparepart
-                                                                    tidak ditemukan
-                                                                </div>
-                                                            </div>
-                                                        @endif
-                                                    @endif
-                                                </div>
+                                            <div class="col-6 pr-1">
+                                                <input type="text" class="form-control form-control-sm"
+                                                    placeholder="Enter sparepart name..."
+                                                    wire:model="sparepartItems.{{ $index }}.requested_sparepart"
+                                                    @if (isset($sparepartItems[$index]['is_completed']) && $sparepartItems[$index]['is_completed']) readonly style="background-color:#e9ecef; cursor:not-allowed;" @endif>
                                             </div>
-                                            <div class="col-md-3">
-                                                <input type="number" class="form-control" placeholder="Qty"
+
+                                            <div class="col-3 pr-1">
+                                                <input type="number" class="form-control form-control-sm"
+                                                    placeholder="Qty"
                                                     wire:model="sparepartItems.{{ $index }}.quantity"
-                                                    min="1">
+                                                    min="1"
+                                                    @if (isset($sparepartItems[$index]['is_completed']) && $sparepartItems[$index]['is_completed']) readonly style="background-color:#e9ecef; cursor:not-allowed;" @endif>
                                             </div>
-                                            <div class="col-md-2">
-                                                <div class="btn-group w-100">
-                                                    @if ($index == 0)
-                                                        <button type="button" class="btn btn-success btn-sm w-100"
-                                                            wire:click="addSparepartItem" title="Add sparepart">
-                                                            <i class="fas fa-plus"></i>
-                                                        </button>
-                                                    @else
-                                                        <button type="button" class="btn btn-danger btn-sm w-100"
-                                                            wire:click="removeSparepartItem({{ $index }})"
-                                                            title="Remove sparepart">
-                                                            <i class="fas fa-minus"></i>
-                                                        </button>
-                                                    @endif
-                                                </div>
+
+                                            <div class="col-2">
+                                                @if ($index == 0)
+                                                    <button type="button" class="btn btn-success btn-sm btn-block"
+                                                        wire:click="addSparepartItem">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                @else
+                                                    <button type="button" class="btn btn-danger btn-sm btn-block"
+                                                        wire:click="removeSparepartItem({{ $index }})"
+                                                        @if (isset($sparepartItems[$index]['is_completed']) && $sparepartItems[$index]['is_completed']) disabled @endif>
+                                                        <i class="fas fa-minus"></i>
+                                                    </button>
+                                                @endif
                                             </div>
                                         </div>
                                     @endforeach
@@ -515,24 +488,27 @@
                                                             <input type="checkbox" class="custom-control-input"
                                                                 id="task{{ $task['id'] }}"
                                                                 @if ($task['is_done']) checked @endif
-                                                                wire:click="toggleTask({{ $task['id'] }})">
+                                                                wire:click="toggleTask({{ $task['id'] }})"
+                                                                @disabled(auth()->user()->planner_group_id != $task['planner_group_id'])>
                                                             <label class="custom-control-label"
                                                                 for="task{{ $task['id'] }}">
                                                                 {{ $task['task'] }}
                                                             </label>
                                                         </div>
-                                                        <div class="btn-group" role="group">
-                                                            <button class="btn btn-sm btn-outline-primary"
-                                                                wire:click="editTask({{ $task['id'] }})"
-                                                                title="Edit">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-danger"
-                                                                wire:click="deleteTask({{ $task['id'] }})"
-                                                                title="Delete">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
-                                                        </div>
+                                                        @if (auth()->user()->planner_group_id == $task['planner_group_id'])
+                                                            <div class="btn-group" role="group">
+                                                                <button class="btn btn-sm btn-outline-primary"
+                                                                    wire:click="editTask({{ $task['id'] }})"
+                                                                    title="Edit">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
+                                                                <button class="btn btn-sm btn-outline-danger"
+                                                                    wire:click="deleteTask({{ $task['id'] }})"
+                                                                    title="Delete">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        @endif
                                                     @endif
                                                 </div>
                                             @endforeach
@@ -576,13 +552,14 @@
                                     placeholder="Please provide a reason..."></textarea>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary btn-pill" wire:click="resetCloseModal"
-                                data-dismiss="modal">Cancel</button>
+                        <div class="modal-footer d-flex flex-wrap justify-content-end">
+                            <button type="button" class="btn mb-2 btn-secondary btn-pill"
+                                wire:click="resetCloseModal" data-dismiss="modal">Cancel</button>
                             <button type="button"
                                 wire:click="confirmChange({{ $selectedWorkOrder->planner_group_id }})"
-                                class="btn btn-warning btn-pill">Planner change</button>
-                            <button type="button" wire:click="confirmClose" class="btn btn-success btn-pill">Request
+                                class="btn mb-2 btn-warning btn-pill">Planner change</button>
+                            <button type="button" wire:click="confirmClose"
+                                class="btn mb-2 btn-success btn-pill">Request
                                 to close</button>
                         </div>
                     </form>
@@ -1199,12 +1176,6 @@
                 });
             });
 
-        });
-
-        Livewire.on('clearDropdown', (index) => {
-            setTimeout(() => {
-                @this.hideSparepartDropdown(index);
-            }, 100);
         });
     </script>
 @endpush

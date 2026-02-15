@@ -126,6 +126,8 @@ class WorkOrderForm extends Component
     {
         $this->planner_groups = PlannerGroup::orderBy('name')->get();
         $this->departments = Department::where('id', '!=', 1)->orderBy('name')->get();
+        $this->req_dept_id = Auth::user()->dept_id;
+        $this->req_user_id = Auth::user()->id;
 
         // Set default dates
         $this->notification_date = now()->format('Y-m-d\TH:i');

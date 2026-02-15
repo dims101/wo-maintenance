@@ -119,10 +119,7 @@
                                             <td>{{ $member->nup }}</td>
                                             <td>{{ $member->email }}</td>
                                             <td>
-                                                {{ $member->actualManhours->filter(function ($manhour) {
-                                                        return \Carbon\Carbon::parse($manhour->date)->isSameDay(\Carbon\Carbon::today());
-                                                    })->sum('actual_time') }}
-                                                minutes
+                                                {{ $member->today_manhours ?? 0 }} minutes
                                             </td>
                                             <td>{{ $member->plannerGroup->name ?? 'N/A' }}</td>
                                             <td>
@@ -435,134 +432,157 @@
             .table-hover tbody tr:hover {
                 background-color: rgba(0, 0, 0, 0.075);
             }
-
-            .btn-sm {
-                padding: 0.25rem 0.5rem;
-                font-size: 0.875rem;
-                line-height: 1.5;
-                border-radius: 0.2rem;
-            }
         </style>
     @endpush
 
     @push('scripts')
-        <!-- SweetAlert2 -->
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
         <script>
             // Global Functions - Define them first
             function confirmDelete(userId, userName) {
-                Swal.fire({
-                    title: 'Delete Team Member?',
-                    text: `Are you sure you want to delete ${userName}? This action cannot be undone.`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    confirmButtonText: 'Yes, Delete!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d',
-                    customClass: {
-                        confirmButton: 'btn-pill',
-                        cancelButton: 'btn-pill'
-                    }
+                swal({
+                    title: "Delete Team Member?",
+                    text: "Are you sure you want to delete " + userName + "? This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                        },
+                        confirm: {
+                            text: "Yes, Delete!",
+                            value: true,
+                            visible: true,
+                            closeModal: true
+                        }
+                    },
+                    dangerMode: true,
                 }).then((result) => {
-                    if (result.isConfirmed) {
+                    if (result) {
                         @this.delete(userId);
                     }
                 });
             }
 
             function confirmApprove(userId, userName) {
-                Swal.fire({
-                    title: 'Approve Team Member?',
-                    text: `Are you sure you want to approve ${userName}? They will become active members.`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    confirmButtonText: 'Yes, Approve!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d',
-                    customClass: {
-                        confirmButton: 'btn-pill',
-                        cancelButton: 'btn-pill'
-                    }
+                swal({
+                    title: "Approve Team Member?",
+                    text: "Are you sure you want to approve " + userName + "? They will become active members.",
+                    icon: "info",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                        },
+                        confirm: {
+                            text: "Yes, Approve!",
+                            value: true,
+                            visible: true,
+                            closeModal: true
+                        }
+                    },
+                    dangerMode: false,
                 }).then((result) => {
-                    if (result.isConfirmed) {
+                    if (result) {
                         @this.approve(userId);
                     }
                 });
             }
 
             function showRejectInput(userId, userName) {
-                Swal.fire({
-                    title: `Reject ${userName}`,
-                    text: 'Please provide a reason for rejection:',
-                    icon: 'warning',
-                    input: 'textarea',
-                    inputPlaceholder: 'Enter rejection reason...',
-                    inputAttributes: {
-                        'aria-label': 'Rejection reason',
-                        'maxlength': '255',
-                        'rows': '4'
+                swal({
+                    title: "Reject " + userName,
+                    text: "Please provide a reason for rejection:",
+                    content: {
+                        element: "input",
+                        attributes: {
+                            placeholder: "Enter rejection reason...",
+                            type: "text",
+                        },
                     },
-                    showCancelButton: true,
-                    confirmButtonText: 'Continue',
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d',
-                    customClass: {
-                        confirmButton: 'btn-pill',
-                        cancelButton: 'btn-pill'
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                        },
+                        confirm: {
+                            text: "Continue",
+                            value: true,
+                            visible: true,
+                            closeModal: false
+                        }
                     },
-                    inputValidator: (value) => {
-                        if (!value || value.trim() === '') {
-                            return 'You need to provide a reason for rejection!'
-                        }
-                        if (value.length > 255) {
-                            return 'Reason must be less than 255 characters!'
-                        }
+                    dangerMode: false,
+                }).then((inputValue) => {
+                    if (inputValue === null) return;
+
+                    if (!inputValue || inputValue.trim() === "") {
+                        swal("Error", "You need to provide a reason for rejection!", "error");
+                        return;
                     }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Show final confirmation with reason
-                        Swal.fire({
-                            title: 'Confirm Rejection',
-                            html: `Are you sure you want to reject <strong>${userName}</strong>?<br><br><small class="text-muted">Reason: "${result.value}"</small>`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Yes, Reject!',
-                            confirmButtonColor: '#dc3545',
-                            cancelButtonText: 'Cancel',
-                            cancelButtonColor: '#6c757d',
-                            customClass: {
-                                confirmButton: 'btn-pill',
-                                cancelButton: 'btn-pill'
-                            }
-                        }).then((confirmResult) => {
-                            if (confirmResult.isConfirmed) {
-                                @this.reject(userId, result.value);
-                            }
-                        });
+
+                    if (inputValue.length > 255) {
+                        swal("Error", "Reason must be less than 255 characters!", "error");
+                        return;
                     }
+
+                    // Show final confirmation with reason
+                    swal({
+                        title: "Confirm Rejection",
+                        text: "Are you sure you want to reject " + userName + "?\n\nReason: \"" + inputValue +
+                            "\"",
+                        icon: "warning",
+                        buttons: {
+                            cancel: {
+                                text: "Cancel",
+                                value: false,
+                                visible: true,
+                                closeModal: true,
+                            },
+                            confirm: {
+                                text: "Yes, Reject!",
+                                value: true,
+                                visible: true,
+                                closeModal: true
+                            }
+                        },
+                        dangerMode: true,
+                    }).then((result) => {
+                        if (result) {
+                            @this.reject(userId, inputValue);
+                        }
+                    });
                 });
             }
 
             function confirmResetPassword(userId, userName) {
-                Swal.fire({
-                    title: 'Reset Password?',
-                    html: `Are you sure you want to reset password for <strong>${userName}</strong>?<br><br><small class="text-warning">The password will be reset to their NUP.</small>`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#17a2b8',
-                    confirmButtonText: 'Yes, Reset!',
-                    cancelButtonText: 'Cancel',
-                    cancelButtonColor: '#6c757d',
-                    customClass: {
-                        confirmButton: 'btn-pill',
-                        cancelButton: 'btn-pill'
-                    }
+                swal({
+                    title: "Reset Password?",
+                    text: "Are you sure you want to reset password for " + userName +
+                        "?\n\nThe password will be reset to their NUP.",
+                    icon: "info",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                        },
+                        confirm: {
+                            text: "Yes, Reset!",
+                            value: true,
+                            visible: true,
+                            closeModal: true
+                        }
+                    },
+                    dangerMode: false,
                 }).then((result) => {
-                    if (result.isConfirmed) {
+                    if (result) {
                         @this.resetPassword(userId);
                     }
                 });
@@ -589,131 +609,127 @@
 
                 // Handle success messages
                 window.addEventListener('teamMemberCreated', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
+                    }).then(() => {
+                        setTimeout(initDataTable, 500);
                     });
-                    setTimeout(initDataTable, 500);
                 });
 
                 window.addEventListener('teamMemberUpdated', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
+                    }).then(() => {
+                        setTimeout(initDataTable, 500);
                     });
-                    setTimeout(initDataTable, 500);
                 });
 
                 window.addEventListener('teamMemberDeleted', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
+                    }).then(() => {
+                        setTimeout(initDataTable, 500);
                     });
-                    setTimeout(initDataTable, 500);
                 });
 
                 window.addEventListener('passwordReset', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
                     });
                 });
 
                 window.addEventListener('showAlert', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
                     });
                 });
 
                 window.addEventListener('confirmUpdate', function() {
-                    Swal.fire({
-                        title: 'Update Team Member?',
-                        text: 'Are you sure you want to update this team member?',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, Update!',
-                        confirmButtonColor: '#007bff',
-                        cancelButtonText: 'Cancel',
-                        cancelButtonColor: '#6c757d',
-                        customClass: {
-                            confirmButton: 'btn-pill',
-                            cancelButton: 'btn-pill'
-                        }
+                    swal({
+                        title: "Update Team Member?",
+                        text: "Are you sure you want to update this team member?",
+                        icon: "info",
+                        buttons: {
+                            cancel: {
+                                text: "Cancel",
+                                value: false,
+                                visible: true,
+                                closeModal: true,
+                            },
+                            confirm: {
+                                text: "Yes, Update!",
+                                value: true,
+                                visible: true,
+                                closeModal: true
+                            }
+                        },
+                        dangerMode: false,
                     }).then((result) => {
-                        if (result.isConfirmed) {
+                        if (result) {
                             @this.updateUser();
                         }
                     });
                 });
 
                 window.addEventListener('teamMemberApproved', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
+                    }).then(() => {
+                        setTimeout(initDataTable, 500);
                     });
-                    setTimeout(initDataTable, 500);
                 });
 
                 window.addEventListener('teamMemberRejected', function(event) {
-                    Swal.fire({
+                    swal({
                         title: event.detail[0].title,
                         text: event.detail[0].message,
                         icon: event.detail[0].icon,
-                        confirmButtonText: 'OK',
-                        customClass: {
-                            confirmButton: 'btn-pill'
-                        }
+                        button: "OK"
+                    }).then(() => {
+                        setTimeout(initDataTable, 500);
                     });
-                    setTimeout(initDataTable, 500);
                 });
 
                 window.addEventListener('confirmRegister', function() {
-                    Swal.fire({
-                        title: 'Register Team Member?',
-                        text: 'Are you sure you want to register this team member? They will be pending for approval.',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#007bff',
-                        confirmButtonText: 'Yes, Register!',
-                        cancelButtonText: 'Cancel',
-                        cancelButtonColor: '#6c757d',
-                        customClass: {
-                            confirmButton: 'btn-pill',
-                            cancelButton: 'btn-pill'
-                        }
+                    swal({
+                        title: "Register Team Member?",
+                        text: "Are you sure you want to register this team member? They will be pending for approval.",
+                        icon: "info",
+                        buttons: {
+                            cancel: {
+                                text: "Cancel",
+                                value: false,
+                                visible: true,
+                                closeModal: true,
+                            },
+                            confirm: {
+                                text: "Yes, Register!",
+                                value: true,
+                                visible: true,
+                                closeModal: true
+                            }
+                        },
+                        dangerMode: false,
                     }).then((result) => {
-                        if (result.isConfirmed) {
+                        if (result) {
                             @this.register();
                         }
                     });
@@ -722,55 +738,69 @@
                 window.addEventListener('showRejectInput', function(event) {
                     const userId = event.detail.userId;
 
-                    Swal.fire({
-                        title: 'Reject Team Member',
-                        text: 'Please provide a reason for rejection:',
-                        icon: 'warning',
-                        input: 'textarea',
-                        inputPlaceholder: 'Enter rejection reason...',
-                        inputAttributes: {
-                            'aria-label': 'Rejection reason',
-                            'maxlength': '255'
+                    swal({
+                        title: "Reject Team Member",
+                        text: "Please provide a reason for rejection:",
+                        content: {
+                            element: "input",
+                            attributes: {
+                                placeholder: "Enter rejection reason...",
+                                type: "text",
+                            },
                         },
-                        showCancelButton: true,
-                        confirmButtonText: 'Reject',
-                        confirmButtonColor: '#dc3545',
-                        cancelButtonText: 'Cancel',
-                        cancelButtonColor: '#6c757d',
-                        customClass: {
-                            confirmButton: 'btn-pill',
-                            cancelButton: 'btn-pill'
+                        buttons: {
+                            cancel: {
+                                text: "Cancel",
+                                value: false,
+                                visible: true,
+                                closeModal: true,
+                            },
+                            confirm: {
+                                text: "Reject",
+                                value: true,
+                                visible: true,
+                                closeModal: false
+                            }
                         },
-                        inputValidator: (value) => {
-                            if (!value || value.trim() === '') {
-                                return 'You need to provide a reason for rejection!'
-                            }
-                            if (value.length > 255) {
-                                return 'Reason must be less than 255 characters!'
-                            }
+                        dangerMode: true,
+                    }).then((inputValue) => {
+                        if (inputValue === null) return;
+
+                        if (!inputValue || inputValue.trim() === "") {
+                            swal("Error", "You need to provide a reason for rejection!", "error");
+                            return;
                         }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Show final confirmation
-                            Swal.fire({
-                                title: 'Confirm Rejection',
-                                text: 'Are you sure you want to reject this team member?',
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonText: 'Yes, Reject!',
-                                confirmButtonColor: '#dc3545',
-                                cancelButtonText: 'Cancel',
-                                cancelButtonColor: '#6c757d',
-                                customClass: {
-                                    confirmButton: 'btn-pill',
-                                    cancelButton: 'btn-pill'
-                                }
-                            }).then((confirmResult) => {
-                                if (confirmResult.isConfirmed) {
-                                    @this.reject(userId, result.value);
-                                }
-                            });
+
+                        if (inputValue.length > 255) {
+                            swal("Error", "Reason must be less than 255 characters!", "error");
+                            return;
                         }
+
+                        // Show final confirmation
+                        swal({
+                            title: "Confirm Rejection",
+                            text: "Are you sure you want to reject this team member?",
+                            icon: "warning",
+                            buttons: {
+                                cancel: {
+                                    text: "Cancel",
+                                    value: false,
+                                    visible: true,
+                                    closeModal: true,
+                                },
+                                confirm: {
+                                    text: "Yes, Reject!",
+                                    value: true,
+                                    visible: true,
+                                    closeModal: true
+                                }
+                            },
+                            dangerMode: true,
+                        }).then((result) => {
+                            if (result) {
+                                @this.reject(userId, inputValue);
+                            }
+                        });
                     });
                 });
             }, {
@@ -798,4 +828,5 @@
             });
         </script>
     @endpush
+
 </div>

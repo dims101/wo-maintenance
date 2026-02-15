@@ -18,6 +18,7 @@ class SparepartList extends Model
         'uom',
         'planner_group_id',
         'is_completed',
+        'requested_sparepart',
     ];
 
     protected function casts(): array

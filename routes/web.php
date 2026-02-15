@@ -9,6 +9,7 @@ use App\Livewire\Dashboard;
 use App\Livewire\MonitoringSpk;
 use App\Livewire\PreventiveMaintenance;
 use App\Livewire\RegisterTeam;
+use App\Livewire\SparepartMaster;
 use App\Livewire\SparepartOrder;
 use App\Livewire\WorkOrderForm;
 use Illuminate\Support\Facades\Auth;
@@ -23,8 +24,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/work-order/assigned', AssignedSpk::class)->name('work-order.assigned');
     Route::get('/work-order', MonitoringSpk::class)->name('work-order');
     Route::get('/sparepart/order', SparepartOrder::class)->name('sparepart.order');
+    Route::get('/sparepart/master', SparepartMaster::class)->name('sparepart.master');
     Route::get('/register', Register::class)->name('register');
-    Route::get('/team/register', RegisterTeam::class)->name('register.team');
+    Route::get('/team/register', RegisterTeam::class)->name('register.team')->middleware('can:access-by-role-dept,"2,3",1');
     Route::get('/pm', PreventiveMaintenance::class)->name('pm');
 });
 // Route::get('/login',[AuthController::class,'showLogin'])->name('login');

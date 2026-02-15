@@ -65,17 +65,29 @@ class ActualManhour extends Model
     // ✅ Method untuk hitung shift dan date
     private function calculateShiftAndDate($startJob)
     {
-        $start = Carbon::parse($startJob);
+        $start = $startJob instanceof Carbon
+            ? $startJob->copy()
+            : Carbon::parse($startJob);
+
+        $start->setTimezone(config('app.timezone'));
+
         $hour = (int) $start->format('H');
 
         if ($hour >= 7 && $hour <= 14) {
             $this->shift = 1;
             $this->date = $start->toDateString();
+
         } elseif ($hour >= 15 && $hour <= 22) {
             $this->shift = 2;
             $this->date = $start->toDateString();
+
+        } elseif ($hour >= 23) {
+            // 23:00 - 23:59 tetap tanggal hari itu
+            $this->shift = 3;
+            $this->date = $start->toDateString();
+
         } else {
-            // Shift 3 (23:00 - 06:59) → pakai tanggal H-1
+            // 00:00 - 06:59 dianggap shift malam hari sebelumnya
             $this->shift = 3;
             $this->date = $start->copy()->subDay()->toDateString();
         }

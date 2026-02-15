@@ -14,7 +14,7 @@
             </form>
         </div>
         {{-- End Search Bar --}}
-        <ul class="navbar-nav topbar-nav ml-md-auto align-items-center border border-primary px-3 mr-2">
+        <ul class="navbar-nav topbar-nav ml-md-auto align-items-center border border-primary px-3 mr-2 mt-2">
             {{-- <li class="nav-item toggle-nav-search hidden-caret">
                 <a class="nav-link" data-toggle="collapse" href="#search-nav" role="button" aria-expanded="false"
                     aria-controls="search-nav">
@@ -23,7 +23,7 @@
                 </a>
             </li> --}}
             <li class="nav-item dropdown">
-                <div class="avatar-sm">
+                <div class="avatar-sm p-1">
                     <img src="{{ asset('assets/img/profile.png') }}" alt="..." class="avatar-img rounded-circle">
                 </div>
             </li>
@@ -64,7 +64,7 @@
                 {{-- End Profile drop down --}}
             </li>
         </ul>
-        <ul class="navbar-nav">
+        <ul class="navbar-nav mt-2">
             <li class="nav-item dropdown hidden-caret">
                 <!-- Tombol Home -->
                 <a href="{{ route('dashboard') }}"

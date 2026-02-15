@@ -83,8 +83,15 @@
                                             <td>{{ $pm->basic_start_date ? $pm->basic_start_date->format('d-m-Y') : '-' }}
                                             </td>
                                             <td>
-                                                <span
-                                                    class="badge {{ $pm->user_status == 'R1' ? 'badge-warning' : 'badge-secondary' }}">
+                                                @php
+                                                    $badgeClass = match (strtoupper($pm->user_status ?? '')) {
+                                                        'COMPLETED' => 'badge-success',
+                                                        'RESCHEDULED' => 'badge-info',
+                                                        'ON PROGRESS' => 'badge-primary',
+                                                        default => 'badge-warning',
+                                                    };
+                                                @endphp
+                                                <span class="badge {{ $badgeClass }}">
                                                     {{ $pm->user_status ?? 'Not Set' }}
                                                 </span>
                                             </td>
@@ -270,24 +277,31 @@
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
 
-                        @if (!$this->isFinished())
+                        {{-- @if (!$this->isCompleted())
                             <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                                data-target="#sparepartModal">Sparepart</button>
+                                data-target="#sparepartModal">
+                                <i class="fas fa-tools"></i> Sparepart
+                            </button>
                             <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
-                                data-target="#activityModal">Activity</button>
-                        @endif
+                                data-target="#activityModal">
+                                <i class="fas fa-tasks"></i> Activity
+                            </button>
+                        @endif --}}
 
                         @if ($this->canReschedule())
-                            <button type="button" class="btn btn-primary btn-pill"
-                                wire:click="confirmReschedule">Reschedule</button>
+                            <button type="button" class="btn btn-primary btn-pill" wire:click="openRescheduleModal">
+                                <i class="fas fa-calendar-alt"></i> Reschedule
+                            </button>
                         @endif
 
-                        @if ($this->isNotStarted())
-                            <button type="button" class="btn btn-success btn-pill"
-                                wire:click="confirmStart">Start</button>
-                        @elseif ($this->isStarted())
-                            <button type="button" class="btn btn-danger btn-pill"
-                                wire:click="confirmStop">Stop</button>
+                        @if ($this->canStart())
+                            <button type="button" class="btn btn-success btn-pill" wire:click="confirmStart">
+                                <i class="fas fa-play"></i> Start PM
+                            </button>
+                        @elseif ($this->canStop())
+                            <button type="button" class="btn btn-danger btn-pill" wire:click="confirmStop">
+                                <i class="fas fa-stop"></i> Stop PM
+                            </button>
                         @endif
                     </div>
                 </div>
@@ -480,6 +494,63 @@
                             data-dismiss="modal">Cancel</button>
                         <button type="button" class="btn btn-success btn-pill"
                             wire:click="confirmActivityUpdate">Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Reschedule Modal -->
+    @if ($selectedPm)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="rescheduleModal" tabindex="-1"
+            role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-primary">
+                        <h5 class="modal-title text-white">
+                            <i class="fas fa-calendar-alt"></i> Reschedule Preventive Maintenance
+                        </h5>
+                        <button type="button" class="close text-white" wire:click="closeRescheduleModal"
+                            data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        {{-- <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i>
+                            Please select a new date for this preventive maintenance. The date must not be in the past.
+                        </div> --}}
+
+                        <div class="form-group">
+                            <label class="strong">Current Basic Start Date</label>
+                            <input type="text" class="form-control"
+                                value="{{ $selectedPm->basic_start_date ? $selectedPm->basic_start_date->format('d-m-Y') : 'Not Set' }}"
+                                readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="strong">New Basic Start Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" wire:model="rescheduleDate"
+                                min="{{ now()->format('Y-m-d') }}" required>
+                            @error('rescheduleDate')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
+                        </div>
+
+                        {{-- <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Warning:</strong> This action will update the basic start date and change the status
+                            to "RESCHEDULED".
+                        </div> --}}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-pill" wire:click="closeRescheduleModal"
+                            data-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary btn-pill" wire:click="confirmReschedule">
+                            <i class="fas fa-check"></i> Confirm Reschedule
+                        </button>
                     </div>
                 </div>
             </div>
@@ -708,6 +779,16 @@
 
             Livewire.on('closeAllModals', () => {
                 $('.modal').modal('hide');
+            });
+
+            Livewire.on('showRescheduleModal', () => {
+                setTimeout(() => {
+                    $('#rescheduleModal').modal('show');
+                }, 100);
+            });
+
+            Livewire.on('closeRescheduleModal', () => {
+                $('#rescheduleModal').modal('hide');
             });
 
             Livewire.on('confirmSparepartSubmit', () => {

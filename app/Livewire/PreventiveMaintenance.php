@@ -41,6 +41,11 @@ class PreventiveMaintenance extends Component
 
     public $sparepartResults = [];
 
+    // Reschedule property
+    public $rescheduleDate = '';
+
+    public $showRescheduleModal = false;
+
     protected $paginationTheme = 'bootstrap';
 
     public function mount()
@@ -72,6 +77,8 @@ class PreventiveMaintenance extends Component
     {
         $this->selectedPmId = null;
         $this->selectedPm = null;
+        $this->rescheduleDate = '';
+        $this->showRescheduleModal = false;
         $this->resetActivityModal();
         $this->resetSparepartModal();
     }
@@ -311,24 +318,71 @@ class PreventiveMaintenance extends Component
 
     // ==================== RESCHEDULE METHOD ====================
 
+    public function openRescheduleModal()
+    {
+        $this->rescheduleDate = $this->selectedPm->basic_start_date
+            ? $this->selectedPm->basic_start_date->format('Y-m-d')
+            : now()->format('Y-m-d');
+        $this->showRescheduleModal = true;
+        $this->dispatch('showRescheduleModal');
+    }
+
+    public function closeRescheduleModal()
+    {
+        $this->rescheduleDate = '';
+        $this->showRescheduleModal = false;
+        $this->dispatch('closeRescheduleModal');
+    }
+
     public function confirmReschedule()
     {
+        // Validasi tanggal tidak boleh kosong
+        if (empty($this->rescheduleDate)) {
+            session()->flash('error', 'Please select a reschedule date.');
+
+            return;
+        }
+
+        // Validasi tanggal tidak boleh yang sudah lewat
+        $selectedDate = \Carbon\Carbon::parse($this->rescheduleDate);
+        $today = \Carbon\Carbon::today();
+
+        if ($selectedDate->lt($today)) {
+            session()->flash('error', 'Reschedule date cannot be in the past.');
+
+            return;
+        }
+
         $this->dispatch('confirmReschedule');
     }
 
     public function reschedule()
     {
         try {
-            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
-            if ($pm) {
-                $pm->update(['user_status' => 'R1']);
-                $this->selectedPm = $pm;
+            DB::beginTransaction();
 
-                $this->dispatch('closeAllModals');
-                session()->flash('message', 'Preventive Maintenance rescheduled successfully.');
+            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
+
+            if (! $pm) {
+                throw new \Exception('Preventive Maintenance not found.');
             }
+
+            $pm->update([
+                'basic_start_date' => $this->rescheduleDate,
+                'user_status' => 'RESCHEDULED',
+            ]);
+
+            $this->selectedPm = $pm;
+
+            DB::commit();
+
+            $this->closeRescheduleModal();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Preventive Maintenance rescheduled successfully to '.
+                \Carbon\Carbon::parse($this->rescheduleDate)->format('d-m-Y').'.');
         } catch (\Exception $e) {
-            session()->flash('error', 'An error occurred while rescheduling.');
+            DB::rollBack();
+            session()->flash('error', 'An error occurred while rescheduling: '.$e->getMessage());
         }
     }
 
@@ -336,76 +390,143 @@ class PreventiveMaintenance extends Component
 
     public function confirmStart()
     {
+        if (! $this->canStart()) {
+            session()->flash('error', 'Cannot start this preventive maintenance.');
+
+            return;
+        }
+
         $this->dispatch('confirmStart');
     }
 
     public function startMaintenance()
     {
         try {
-            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
-            if ($pm) {
-                $pm->update([
-                    'actual_start_date' => now()->toDateString(),
-                    'actual_start_time' => now()->format('H:i'),
-                    'entered_by' => Auth::user()->name,
-                    'user_status' => 'ON PROGRESS',
-                ]);
-                $this->selectedPm = $pm;
+            DB::beginTransaction();
 
-                $this->dispatch('closeAllModals');
-                session()->flash('message', 'Preventive Maintenance started successfully.');
+            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
+
+            if (! $pm) {
+                throw new \Exception('Preventive Maintenance not found.');
             }
+
+            if (! $this->canStart()) {
+                throw new \Exception('This preventive maintenance has already been started.');
+            }
+
+            $now = now();
+            $pm->update([
+                'actual_start_date' => $now->toDateString(),
+                'actual_start_time' => $now->format('H:i'),
+                'entered_by' => Auth::user()->name,
+                'user_status' => 'ON PROGRESS',
+            ]);
+
+            $this->selectedPm = $pm;
+
+            DB::commit();
+
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Preventive Maintenance started successfully at '.$now->format('d-m-Y H:i').'.');
         } catch (\Exception $e) {
-            session()->flash('error', 'An error occurred while starting maintenance.');
+            DB::rollBack();
+            session()->flash('error', 'An error occurred while starting maintenance: '.$e->getMessage());
         }
     }
 
     public function confirmStop()
     {
+        if (! $this->canStop()) {
+            session()->flash('error', 'Cannot stop this preventive maintenance.');
+
+            return;
+        }
+
         $this->dispatch('confirmStop');
     }
 
     public function stopMaintenance()
     {
         try {
-            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
-            if ($pm) {
-                $pm->update([
-                    'actual_finish' => now(),
-                    'user_status' => 'CLOSED',
-                ]);
-                $this->selectedPm = $pm;
+            DB::beginTransaction();
 
-                $this->dispatch('closeAllModals');
-                session()->flash('message', 'Preventive Maintenance stopped successfully.');
+            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
+
+            if (! $pm) {
+                throw new \Exception('Preventive Maintenance not found.');
             }
+
+            if (! $this->canStop()) {
+                throw new \Exception('This preventive maintenance has not been started or already completed.');
+            }
+
+            $pm->update([
+                'actual_finish' => now(),
+                'user_status' => 'COMPLETED',
+            ]);
+
+            $this->selectedPm = $pm;
+
+            DB::commit();
+
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Preventive Maintenance completed successfully.');
         } catch (\Exception $e) {
-            session()->flash('error', 'An error occurred while stopping maintenance.');
+            DB::rollBack();
+            session()->flash('error', 'An error occurred while stopping maintenance: '.$e->getMessage());
         }
     }
 
-    public function isFinished()
+    // ==================== HELPER METHODS ====================
+
+    public function isCompleted()
     {
-        return $this->selectedPm && $this->selectedPm->actual_finish !== null;
+        return $this->selectedPm &&
+               $this->selectedPm->user_status === 'COMPLETED';
+    }
+
+    public function isRescheduled()
+    {
+        return $this->selectedPm &&
+               $this->selectedPm->user_status === 'RESCHEDULED';
+    }
+
+    public function isOnProgress()
+    {
+        return $this->selectedPm &&
+               $this->selectedPm->user_status === 'ON PROGRESS';
     }
 
     public function canReschedule()
     {
         return $this->selectedPm &&
-               $this->selectedPm->actual_start_date === null;
+               $this->selectedPm->actual_start_date === null &&
+               ! $this->isCompleted();
     }
 
-    public function isStarted()
+    public function canStart()
+    {
+        return $this->selectedPm &&
+               $this->selectedPm->actual_start_date === null &&
+               ! $this->isCompleted();
+    }
+
+    public function canStop()
     {
         return $this->selectedPm &&
                $this->selectedPm->actual_start_date !== null &&
-               $this->selectedPm->actual_finish === null;
+               $this->selectedPm->actual_finish === null &&
+               ! $this->isCompleted();
     }
 
-    public function isNotStarted()
+    public function getUserStatusBadgeClass($status)
     {
-        return $this->selectedPm &&
-               $this->selectedPm->actual_start_date === null;
+        return match (strtoupper($status ?? '')) {
+            'COMPLETED' => 'badge-success',
+            'RESCHEDULED' => 'badge-info',
+            'ON PROGRESS' => 'badge-primary',
+            default => 'badge-warning',
+        };
     }
 
     public function render()

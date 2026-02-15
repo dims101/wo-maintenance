@@ -45,6 +45,7 @@ class RegisterTeam extends Component
 
     public function mount()
     {
+        $this->authorize('access-by-role-dept', ['2,3,4', '1']);
         $this->planner_groups = PlannerGroup::orderBy('name')->get();
 
         // Check if current user can edit/delete (role 1 or 2)
@@ -335,10 +336,34 @@ class RegisterTeam extends Component
         $this->resetValidation();
     }
 
+    private function getWorkDate()
+    {
+        $now = now()->setTimezone(config('app.timezone'));
+
+        $hour = (int) $now->format('H');
+
+        // Jam 00:00 - 06:59 → masih dianggap tanggal kemarin
+        if ($hour < 7) {
+            return $now->copy()->subDay()->toDateString();
+        }
+
+        return $now->toDateString();
+    }
+
     public function render()
     {
+        $workDate = $this->getWorkDate();
+
         return view('livewire.register-team', [
-            'teamMembers' => User::with('actualManhours')->where('dept_id', 1)->orderBy('created_at', 'desc')->get(),
+            'teamMembers' => User::withSum(
+                ['actualManhours as today_manhours' => function ($query) use ($workDate) {
+                    $query->whereDate('date', $workDate);
+                }],
+                'actual_time'
+            )
+                ->where('dept_id', 1)
+                ->orderBy('created_at', 'desc')
+                ->get(),
         ]);
     }
 }

@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class TeamAssignment extends Model
 {
@@ -14,6 +14,7 @@ class TeamAssignment extends Model
         'approval_id',
         'user_id',
         'is_pic',
+        'pm_id',
     ];
 
     protected function casts(): array
@@ -29,6 +30,11 @@ class TeamAssignment extends Model
     public function approval()
     {
         return $this->belongsTo(MaintenanceApproval::class, 'approval_id');
+    }
+
+    public function preventiveMaintenance()
+    {
+        return $this->belongsTo(PreventiveMaintenance::class, 'pm_id');
     }
 
     public function user()

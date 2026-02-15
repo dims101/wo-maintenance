@@ -84,4 +84,38 @@ class User extends Authenticatable
             'deleted_at' => 'datetime',
         ];
     }
+
+    /**
+     * Get total manhour user hari ini (dalam menit)
+     */
+    public function getTotalManhourToday()
+    {
+        return $this->actualManhours()
+            ->whereDate('date', today())
+            ->sum('actual_time');
+    }
+
+    /**
+     * Check apakah user punya active assignment (WO atau PM)
+     */
+    public function hasActiveAssignment()
+    {
+        // Check Work Order assignment
+        $hasWoAssignment = TeamAssignment::where('user_id', $this->id)
+            ->whereNotNull('approval_id')
+            ->whereHas('approval.workOrder', function ($q) {
+                $q->whereNotIn('status', ['Closed', 'Rejected', 'CLOSED', 'REJECTED']);
+            })
+            ->exists();
+
+        // Check PM assignment
+        $hasPmAssignment = TeamAssignment::where('user_id', $this->id)
+            ->whereNotNull('pm_id')
+            ->whereHas('preventiveMaintenance', function ($q) {
+                $q->whereNotIn('user_status', ['COMPLETED', 'CLOSED']);
+            })
+            ->exists();
+
+        return $hasWoAssignment || $hasPmAssignment;
+    }
 }

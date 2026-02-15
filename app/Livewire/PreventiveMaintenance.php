@@ -4,9 +4,8 @@ namespace App\Livewire;
 
 use App\Models\ActivityList;
 use App\Models\PreventiveMaintenance as PreventiveMaintenanceModel;
-use App\Models\Sparepart;
-use App\Models\SparepartList;
-use Illuminate\Support\Facades\Auth;
+use App\Models\TeamAssignment;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -34,14 +33,16 @@ class PreventiveMaintenance extends Component
 
     public $editingTaskName = '';
 
-    // Sparepart properties
-    public $sparepartItems = [];
+    // Team Assignment properties
+    public $showAssignModal = false;
 
-    public $sparepartSearch = [];
+    public $users = [];
 
-    public $sparepartResults = [];
+    public $selectedPic = null;
 
-    // Reschedule property
+    public $teamMembers = [''];
+
+    // reschedule
     public $rescheduleDate = '';
 
     public $showRescheduleModal = false;
@@ -50,7 +51,7 @@ class PreventiveMaintenance extends Component
 
     public function mount()
     {
-        $this->sparepartItems = [['sparepart_id' => '', 'quantity' => '']];
+        $this->loadAvailableUsers();
     }
 
     public function updatedSearch()
@@ -69,7 +70,7 @@ class PreventiveMaintenance extends Component
         $this->selectedPm = PreventiveMaintenanceModel::find($pmId);
 
         $this->loadActivityLists();
-        $this->loadSparepartItems();
+        $this->loadAvailableUsers();  // ✅ TAMBAHKAN INI
         $this->dispatch('showDetailModal');
     }
 
@@ -77,143 +78,20 @@ class PreventiveMaintenance extends Component
     {
         $this->selectedPmId = null;
         $this->selectedPm = null;
-        $this->rescheduleDate = '';
-        $this->showRescheduleModal = false;
+        $this->rescheduleDate = '';  // KEEP jika masih ada reschedule
+        $this->selectedPic = null;   // ✅ TAMBAHKAN
+        $this->teamMembers = [''];   // ✅ TAMBAHKAN
+        $this->showAssignModal = false;  // ✅ TAMBAHKAN
         $this->resetActivityModal();
-        $this->resetSparepartModal();
+        // HAPUS: $this->resetSparepartModal();
     }
 
-    // ==================== SPAREPART METHODS ====================
-
-    public function addSparepartItem()
+    public function resetActivityModal()
     {
-        $this->sparepartItems[] = ['sparepart_id' => '', 'quantity' => ''];
+        $this->newTask = '';  // HAPUS jika property newTask dihapus
+        $this->editingTaskId = null;
+        $this->editingTaskName = '';
     }
-
-    public function removeSparepartItem($index)
-    {
-        unset($this->sparepartItems[$index]);
-        unset($this->sparepartResults[$index]);
-        unset($this->sparepartSearch[$index]);
-        $this->sparepartItems = array_values($this->sparepartItems);
-    }
-
-    public function searchSpareparts($index, $query)
-    {
-        if (strlen($query) < 3) {
-            $this->sparepartResults[$index] = [];
-
-            return;
-        }
-
-        $selectedIds = array_filter(array_column($this->sparepartItems, 'sparepart_id'));
-
-        $results = Sparepart::where(function ($q) use ($query) {
-            $q->where('name', 'ilike', '%'.$query.'%')
-                ->orWhere('code', 'ilike', '%'.$query.'%')
-                ->orWhere('barcode', 'ilike', '%'.$query.'%');
-        })
-            ->whereNotIn('id', $selectedIds)
-            ->limit(10)
-            ->get(['id', 'code', 'name', 'uom']);
-
-        $this->sparepartResults[$index] = $results->toArray();
-    }
-
-    public function selectSparepart($index, $sparepartId)
-    {
-        $sparepart = Sparepart::find($sparepartId);
-        if ($sparepart) {
-            $this->sparepartItems[$index]['sparepart_id'] = $sparepartId;
-            $this->sparepartSearch[$index] = $sparepart->code.' - '.$sparepart->name;
-            $this->sparepartResults[$index] = [];
-        }
-    }
-
-    public function hideSparepartDropdown($index)
-    {
-        $this->sparepartResults[$index] = [];
-    }
-
-    public function submitSparepart()
-    {
-        $validItems = array_filter($this->sparepartItems, function ($item) {
-            return ! empty($item['sparepart_id']) && ! empty($item['quantity']);
-        });
-
-        if (empty($validItems)) {
-            session()->flash('error', 'Please add at least one sparepart with quantity.');
-
-            return;
-        }
-
-        $this->dispatch('confirmSparepartSubmit');
-    }
-
-    public function saveSparepartReservation()
-    {
-        $validItems = array_filter($this->sparepartItems, function ($item) {
-            return ! empty($item['sparepart_id']) && ! empty($item['quantity']);
-        });
-
-        try {
-            DB::beginTransaction();
-
-            foreach ($validItems as $item) {
-                $sparepart = Sparepart::find($item['sparepart_id']);
-                SparepartList::create([
-                    'pm_id' => $this->selectedPmId,
-                    'barcode' => $sparepart->barcode,
-                    'qty' => $item['quantity'],
-                    'uom' => $sparepart->uom,
-                    'is_completed' => false,
-                    'planner_group_id' => null,
-                ]);
-            }
-
-            DB::commit();
-
-            $this->resetSparepartModal();
-            $this->dispatch('closeAllModals');
-            session()->flash('message', 'Sparepart reservation saved successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            session()->flash('error', 'An error occurred while saving sparepart reservation.');
-        }
-    }
-
-    public function loadSparepartItems()
-    {
-        $savedItems = SparepartList::where('pm_id', $this->selectedPmId)->get();
-
-        if ($savedItems->isNotEmpty()) {
-            $this->sparepartItems = [];
-            $this->sparepartSearch = [];
-
-            foreach ($savedItems as $item) {
-                $sparepart = Sparepart::where('barcode', $item->barcode)->first();
-                if ($sparepart) {
-                    $this->sparepartItems[] = [
-                        'sparepart_id' => $sparepart->id,
-                        'quantity' => $item->qty,
-                    ];
-                    $this->sparepartSearch[] = $sparepart->code.' - '.$sparepart->name;
-                }
-            }
-        } else {
-            $this->sparepartItems = [['sparepart_id' => '', 'quantity' => '']];
-            $this->sparepartSearch = [];
-        }
-
-        $this->sparepartResults = [];
-    }
-
-    public function resetSparepartModal()
-    {
-        $this->loadSparepartItems();
-        $this->sparepartResults = [];
-    }
-
     // ==================== ACTIVITY METHODS ====================
 
     public function loadActivityLists()
@@ -221,68 +99,6 @@ class PreventiveMaintenance extends Component
         if ($this->selectedPmId) {
             $this->activityLists = ActivityList::where('pm_id', $this->selectedPmId)->get()->toArray();
         }
-    }
-
-    public function addNewTask()
-    {
-        if (trim($this->newTask) === '') {
-            return;
-        }
-
-        ActivityList::create([
-            'pm_id' => $this->selectedPmId,
-            'task' => trim($this->newTask),
-            'is_done' => false,
-            'planner_group_id' => null,
-        ]);
-
-        $this->newTask = '';
-        $this->loadActivityLists();
-    }
-
-    public function toggleTask($taskId)
-    {
-        $task = ActivityList::find($taskId);
-        if ($task) {
-            $task->update(['is_done' => ! $task->is_done]);
-            $this->loadActivityLists();
-        }
-    }
-
-    public function editTask($taskId)
-    {
-        $task = ActivityList::find($taskId);
-        if ($task) {
-            $this->editingTaskId = $taskId;
-            $this->editingTaskName = $task->task;
-        }
-    }
-
-    public function updateTaskName()
-    {
-        if (trim($this->editingTaskName) === '') {
-            return;
-        }
-
-        $task = ActivityList::find($this->editingTaskId);
-        if ($task) {
-            $task->update(['task' => trim($this->editingTaskName)]);
-            $this->editingTaskId = null;
-            $this->editingTaskName = '';
-            $this->loadActivityLists();
-        }
-    }
-
-    public function cancelEditTask()
-    {
-        $this->editingTaskId = null;
-        $this->editingTaskName = '';
-    }
-
-    public function deleteTask($taskId)
-    {
-        ActivityList::destroy($taskId);
-        $this->loadActivityLists();
     }
 
     public function calculateProgress()
@@ -298,61 +114,239 @@ class PreventiveMaintenance extends Component
         return round((count($completedTasks) / count($this->activityLists)) * 100, 1);
     }
 
-    public function confirmActivityUpdate()
+    // ==================== TEAM ASSIGNMENT METHODS ====================
+
+    public function loadAvailableUsers()
     {
-        $this->dispatch('confirmActivityUpdate');
+        try {
+            // ✅ Terima 'active', 'Active', 'ACTIVE'
+            $allUsers = User::where('dept_id', 1)
+                ->whereIn('role_id', [4, 5])
+                ->whereIn('status', ['active', 'Active', 'ACTIVE']) // ✅ Cover semua case
+                ->get();
+
+            $this->users = $allUsers->map(function ($user) {
+                try {
+                    $manhourToday = $user->getTotalManhourToday();
+                } catch (\Exception $e) {
+                    \Log::warning("Error getting manhour for user {$user->id}: ".$e->getMessage());
+                    $manhourToday = 0;
+                }
+
+                $hasActiveAssignment = $user->hasActiveAssignment();
+
+                $is_available = $manhourToday < 420 && ! $hasActiveAssignment;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'nup' => $user->nup ?? '-',
+                    'manhour_today' => $manhourToday,
+                    'is_available' => $is_available,
+                    'reason' => $manhourToday >= 420
+                        ? 'Manhour limit reached ('.$manhourToday.' min)'
+                        : ($hasActiveAssignment ? 'Has active assignment' : ''),
+                ];
+            })
+                ->filter(function ($user) {
+                    return $user['is_available'];
+                })
+                ->values()
+                ->toArray();
+
+            \Log::info('Available users loaded: '.count($this->users));
+
+        } catch (\Exception $e) {
+            \Log::error('Error loading users: '.$e->getMessage());
+            $this->users = [];
+            session()->flash('error', 'Error loading users: '.$e->getMessage());
+        }
     }
 
-    public function updateActivity()
+    public function openAssignModal()
     {
-        $this->dispatch('closeAllModals');
-        session()->flash('message', 'Activity updated successfully.');
+        // Reset dulu
+        $this->selectedPic = null;
+        $this->teamMembers = [''];
+
+        // Load users
+        $this->loadAvailableUsers();
+
+        // Debug: Cek jumlah users
+        if (empty($this->users)) {
+            session()->flash('error', 'No available users found. All maintenance staff are either at manhour limit or have active assignments.');
+
+            return;
+        }
+
+        $this->showAssignModal = true;
+        $this->dispatch('showAssignModal');
     }
 
-    public function resetActivityModal()
+    public function closeAssignModal()
     {
-        $this->newTask = '';
-        $this->editingTaskId = null;
-        $this->editingTaskName = '';
+        $this->selectedPic = null;
+        $this->teamMembers = [''];
+        $this->showAssignModal = false;
+        $this->dispatch('closeAssignModal');
+    }
+
+    public function addTeamMember()
+    {
+        $this->teamMembers[] = '';
+    }
+
+    public function removeTeamMember($index)
+    {
+        unset($this->teamMembers[$index]);
+        $this->teamMembers = array_values($this->teamMembers);
+    }
+
+    public function updatedSelectedPic($value)
+    {
+        // Remove PIC from team members if selected as PIC
+        $this->teamMembers = array_filter($this->teamMembers, function ($memberId) use ($value) {
+            return $memberId != $value;
+        });
+        $this->teamMembers = array_values($this->teamMembers);
+    }
+
+    public function confirmAssignTeam()
+    {
+        // Validasi PIC harus dipilih
+        if (! $this->selectedPic) {
+            session()->flash('error', 'Please select a PIC.');
+
+            return;
+        }
+
+        // Validasi minimal ada 1 team member
+        $validTeamMembers = array_filter($this->teamMembers);
+        if (empty($validTeamMembers)) {
+            session()->flash('error', 'Please select at least one team member.');
+
+            return;
+        }
+
+        $this->dispatch('confirmAssignTeam');
+    }
+
+    public function assignTeamToPm()
+    {
+        try {
+            DB::beginTransaction();
+
+            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
+
+            if (! $pm) {
+                throw new \Exception('Preventive Maintenance not found.');
+            }
+
+            // Check if already assigned
+            $existingAssignment = TeamAssignment::where('pm_id', $this->selectedPmId)->exists();
+            if ($existingAssignment) {
+                throw new \Exception('Team already assigned to this PM.');
+            }
+
+            // Validate PIC
+            if (! $this->selectedPic) {
+                throw new \Exception('Please select a PIC.');
+            }
+
+            // Get valid team members (exclude empty values)
+            $validTeamMembers = array_filter($this->teamMembers);
+
+            if (empty($validTeamMembers)) {
+                throw new \Exception('Please select at least one team member.');
+            }
+
+            // Double check all users availability
+            $allUserIds = array_merge([$this->selectedPic], $validTeamMembers);
+            foreach ($allUserIds as $userId) {
+                $user = User::find($userId);
+                if (! $user) {
+                    throw new \Exception('User not found.');
+                }
+
+                // Check manhour limit
+                if ($user->getTotalManhourToday() >= 420) {
+                    throw new \Exception($user->name.' has reached manhour limit.');
+                }
+
+                // Check active assignment
+                if ($user->hasActiveAssignment()) {
+                    throw new \Exception($user->name.' already has an active assignment.');
+                }
+            }
+
+            // Assign PIC
+            TeamAssignment::create([
+                'pm_id' => $this->selectedPmId,
+                'user_id' => $this->selectedPic,
+                'is_pic' => true,
+            ]);
+
+            // Assign Team Members
+            foreach ($validTeamMembers as $memberId) {
+                if ($memberId != $this->selectedPic) { // Pastikan tidak double assign PIC
+                    TeamAssignment::create([
+                        'pm_id' => $this->selectedPmId,
+                        'user_id' => $memberId,
+                        'is_pic' => false,
+                    ]);
+                }
+            }
+
+            // Update PM status
+            $pm->update([
+                'user_status' => 'ASSIGNED',
+            ]);
+
+            $this->selectedPm = $pm;
+
+            DB::commit();
+
+            $this->closeAssignModal();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Team assigned successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to assign team: '.$e->getMessage());
+        }
+    }
+
+    public function canAssignTeam()
+    {
+        return $this->selectedPm &&
+               in_array($this->selectedPm->user_status, ['RELEASED', null]) &&
+               ! TeamAssignment::where('pm_id', $this->selectedPmId)->exists();
+    }
+
+    public function getAssignedTeam()
+    {
+        if (! $this->selectedPmId) {
+            return collect();
+        }
+
+        return TeamAssignment::with('user')
+            ->where('pm_id', $this->selectedPmId)
+            ->get();
     }
 
     // ==================== RESCHEDULE METHOD ====================
 
-    public function openRescheduleModal()
+    public function canReschedule()
     {
-        $this->rescheduleDate = $this->selectedPm->basic_start_date
-            ? $this->selectedPm->basic_start_date->format('Y-m-d')
-            : now()->format('Y-m-d');
-        $this->showRescheduleModal = true;
-        $this->dispatch('showRescheduleModal');
+        return $this->selectedPm &&
+               ! in_array($this->selectedPm->user_status, ['ON PROGRESS', 'COMPLETED', 'CLOSED']) &&
+               ! TeamAssignment::where('pm_id', $this->selectedPmId)->exists();
     }
 
-    public function closeRescheduleModal()
+    public function confirmReschedule($newDate)
     {
-        $this->rescheduleDate = '';
-        $this->showRescheduleModal = false;
-        $this->dispatch('closeRescheduleModal');
-    }
-
-    public function confirmReschedule()
-    {
-        // Validasi tanggal tidak boleh kosong
-        if (empty($this->rescheduleDate)) {
-            session()->flash('error', 'Please select a reschedule date.');
-
-            return;
-        }
-
-        // Validasi tanggal tidak boleh yang sudah lewat
-        $selectedDate = \Carbon\Carbon::parse($this->rescheduleDate);
-        $today = \Carbon\Carbon::today();
-
-        if ($selectedDate->lt($today)) {
-            session()->flash('error', 'Reschedule date cannot be in the past.');
-
-            return;
-        }
-
+        // Method ini akan dipanggil dari blade dengan parameter tanggal
+        $this->rescheduleDate = $newDate;
         $this->dispatch('confirmReschedule');
     }
 
@@ -367,6 +361,22 @@ class PreventiveMaintenance extends Component
                 throw new \Exception('Preventive Maintenance not found.');
             }
 
+            if (! $this->canReschedule()) {
+                throw new \Exception('Cannot reschedule this PM.');
+            }
+
+            // Validasi tanggal
+            if (empty($this->rescheduleDate)) {
+                throw new \Exception('Please select a reschedule date.');
+            }
+
+            $selectedDate = \Carbon\Carbon::parse($this->rescheduleDate);
+            $today = \Carbon\Carbon::today();
+
+            if ($selectedDate->lt($today)) {
+                throw new \Exception('Reschedule date cannot be in the past.');
+            }
+
             $pm->update([
                 'basic_start_date' => $this->rescheduleDate,
                 'user_status' => 'RESCHEDULED',
@@ -376,30 +386,37 @@ class PreventiveMaintenance extends Component
 
             DB::commit();
 
-            $this->closeRescheduleModal();
             $this->dispatch('closeAllModals');
-            session()->flash('message', 'Preventive Maintenance rescheduled successfully to '.
-                \Carbon\Carbon::parse($this->rescheduleDate)->format('d-m-Y').'.');
+            session()->flash('message', 'PM rescheduled successfully to '.
+                $selectedDate->format('d-m-Y').'.');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'An error occurred while rescheduling: '.$e->getMessage());
+            session()->flash('error', $e->getMessage());
         }
     }
 
-    // ==================== START/STOP METHODS ====================
+    // ==================== CLOSE PM METHOD ====================
 
-    public function confirmStart()
+    public function canClosePm()
     {
-        if (! $this->canStart()) {
-            session()->flash('error', 'Cannot start this preventive maintenance.');
+        return $this->selectedPm &&
+               $this->selectedPm->user_status === 'REQUESTED TO BE CLOSED' &&
+               $this->calculateProgress() == 100;
+    }
+
+    public function confirmClosePm()
+    {
+        if (! $this->canClosePm()) {
+            session()->flash('error', 'Cannot close this PM. Check status and progress.');
 
             return;
         }
 
-        $this->dispatch('confirmStart');
+        $this->dispatch('confirmClosePm');
     }
 
-    public function startMaintenance()
+    public function closePm()
     {
         try {
             DB::beginTransaction();
@@ -410,59 +427,13 @@ class PreventiveMaintenance extends Component
                 throw new \Exception('Preventive Maintenance not found.');
             }
 
-            if (! $this->canStart()) {
-                throw new \Exception('This preventive maintenance has already been started.');
-            }
-
-            $now = now();
-            $pm->update([
-                'actual_start_date' => $now->toDateString(),
-                'actual_start_time' => $now->format('H:i'),
-                'entered_by' => Auth::user()->name,
-                'user_status' => 'ON PROGRESS',
-            ]);
-
-            $this->selectedPm = $pm;
-
-            DB::commit();
-
-            $this->dispatch('closeAllModals');
-            session()->flash('message', 'Preventive Maintenance started successfully at '.$now->format('d-m-Y H:i').'.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            session()->flash('error', 'An error occurred while starting maintenance: '.$e->getMessage());
-        }
-    }
-
-    public function confirmStop()
-    {
-        if (! $this->canStop()) {
-            session()->flash('error', 'Cannot stop this preventive maintenance.');
-
-            return;
-        }
-
-        $this->dispatch('confirmStop');
-    }
-
-    public function stopMaintenance()
-    {
-        try {
-            DB::beginTransaction();
-
-            $pm = PreventiveMaintenanceModel::find($this->selectedPmId);
-
-            if (! $pm) {
-                throw new \Exception('Preventive Maintenance not found.');
-            }
-
-            if (! $this->canStop()) {
-                throw new \Exception('This preventive maintenance has not been started or already completed.');
+            if (! $this->canClosePm()) {
+                throw new \Exception('Cannot close this PM. Status must be REQUESTED TO BE CLOSED and progress must be 100%.');
             }
 
             $pm->update([
-                'actual_finish' => now(),
                 'user_status' => 'COMPLETED',
+                'actual_finish' => now(),
             ]);
 
             $this->selectedPm = $pm;
@@ -470,62 +441,40 @@ class PreventiveMaintenance extends Component
             DB::commit();
 
             $this->dispatch('closeAllModals');
-            session()->flash('message', 'Preventive Maintenance completed successfully.');
+            session()->flash('message', 'PM closed successfully.');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'An error occurred while stopping maintenance: '.$e->getMessage());
+            session()->flash('error', $e->getMessage());
         }
     }
+    // ==================== HELPER METHODS ====================
+
+    // public function canReschedule()
+    // {
+    //     return $this->selectedPm &&
+    //            $this->selectedPm->actual_start_date === null &&
+    //            ! $this->isCompleted();
+    // }
 
     // ==================== HELPER METHODS ====================
 
     public function isCompleted()
     {
         return $this->selectedPm &&
-               $this->selectedPm->user_status === 'COMPLETED';
-    }
-
-    public function isRescheduled()
-    {
-        return $this->selectedPm &&
-               $this->selectedPm->user_status === 'RESCHEDULED';
-    }
-
-    public function isOnProgress()
-    {
-        return $this->selectedPm &&
-               $this->selectedPm->user_status === 'ON PROGRESS';
-    }
-
-    public function canReschedule()
-    {
-        return $this->selectedPm &&
-               $this->selectedPm->actual_start_date === null &&
-               ! $this->isCompleted();
-    }
-
-    public function canStart()
-    {
-        return $this->selectedPm &&
-               $this->selectedPm->actual_start_date === null &&
-               ! $this->isCompleted();
-    }
-
-    public function canStop()
-    {
-        return $this->selectedPm &&
-               $this->selectedPm->actual_start_date !== null &&
-               $this->selectedPm->actual_finish === null &&
-               ! $this->isCompleted();
+               in_array($this->selectedPm->user_status, ['COMPLETED', 'CLOSED']);
     }
 
     public function getUserStatusBadgeClass($status)
     {
         return match (strtoupper($status ?? '')) {
-            'COMPLETED' => 'badge-success',
+            'COMPLETED', 'CLOSED' => 'badge-success',
             'RESCHEDULED' => 'badge-info',
+            'ASSIGNED' => 'badge-info',
             'ON PROGRESS' => 'badge-primary',
-            default => 'badge-warning',
+            'REQUESTED TO BE CLOSED' => 'badge-warning',
+            'RELEASED' => 'badge-secondary',
+            default => 'badge-secondary',
         };
     }
 

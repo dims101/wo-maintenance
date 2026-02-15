@@ -259,6 +259,37 @@
                                         value="{{ $selectedPm->user_status ?? '-' }}" readonly>
                                 </div>
 
+                                <!-- Assigned Team Section / hide this-->
+                                @if ($this->getAssignedTeam()->count() > 0)
+                                    <div class="form-group">
+                                        <label class="strong">Assigned Team</label>
+                                        <div class="card">
+                                            <div class="card-body">
+                                                @foreach ($this->getAssignedTeam() as $assignment)
+                                                    <div
+                                                        class="d-flex justify-content-between align-items-center mb-2">
+                                                        <div>
+                                                            <i class="fas fa-user"></i>
+                                                            {{ $assignment->user->name }}
+                                                            <small
+                                                                class="text-muted">({{ $assignment->user->nup }})</small>
+                                                        </div>
+                                                        @if ($assignment->is_pic)
+                                                            <span class="badge badge-primary">
+                                                                <i class="fas fa-star"></i> PIC
+                                                            </span>
+                                                        @else
+                                                            <span class="badge badge-secondary">
+                                                                <i class="fas fa-users"></i> Team
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <div class="form-group">
                                     <label class="strong">Equipment</label>
                                     <input type="text" class="form-control"
@@ -277,130 +308,31 @@
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
                             wire:click="closeModal">Close</button>
 
-                        {{-- @if (!$this->isCompleted())
-                            <button type="button" class="btn btn-info btn-pill" data-toggle="modal"
-                                data-target="#sparepartModal">
-                                <i class="fas fa-tools"></i> Sparepart
-                            </button>
+                        @if (!$this->isCompleted())
                             <button type="button" class="btn btn-warning btn-pill" data-toggle="modal"
                                 data-target="#activityModal">
-                                <i class="fas fa-tasks"></i> Activity
+                                <i class="fas fa-tasks"></i> Activity List
                             </button>
-                        @endif --}}
+                        @endif
+
+                        @if ($this->canAssignTeam())
+                            <button type="button" class="btn btn-success btn-pill" wire:click="openAssignModal">
+                                <i class="fas fa-users"></i> Assign Team
+                            </button>
+                        @endif
 
                         @if ($this->canReschedule())
-                            <button type="button" class="btn btn-primary btn-pill" wire:click="openRescheduleModal">
+                            <button type="button" class="btn btn-primary btn-pill" data-toggle="modal"
+                                data-target="#rescheduleModal">
                                 <i class="fas fa-calendar-alt"></i> Reschedule
                             </button>
                         @endif
 
-                        @if ($this->canStart())
-                            <button type="button" class="btn btn-success btn-pill" wire:click="confirmStart">
-                                <i class="fas fa-play"></i> Start PM
-                            </button>
-                        @elseif ($this->canStop())
-                            <button type="button" class="btn btn-danger btn-pill" wire:click="confirmStop">
-                                <i class="fas fa-stop"></i> Stop PM
+                        @if ($this->canClosePm())
+                            <button type="button" class="btn btn-danger btn-pill" wire:click="confirmClosePm">
+                                <i class="fas fa-check-circle"></i> Close PM
                             </button>
                         @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    <!-- Sparepart Modal -->
-    @if ($selectedPm)
-        <div wire:ignore.self class="modal fade" data-backdrop="static" id="sparepartModal" tabindex="-1"
-            role="dialog">
-            <div class="modal-dialog modal-dialog-centered" role="document">
-                <div class="modal-content shadow-lg">
-                    <div class="modal-header bg-info">
-                        <h5 class="modal-title text-white">Sparepart Reservation</h5>
-                        <button type="button" class="close text-white" wire:click="resetSparepartModal"
-                            data-dismiss="modal">
-                            <span>&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <label class="strong">Request Sparepart <span
-                                                class="text-danger">*</span></label>
-                                    </div>
-                                    @foreach ($sparepartItems as $index => $item)
-                                        <div class="row mb-3">
-                                            <div class="col-md-7">
-                                                <div class="position-relative">
-                                                    <input type="text" class="form-control"
-                                                        placeholder="Search sparepart..."
-                                                        wire:model.live="sparepartSearch.{{ $index }}"
-                                                        wire:input="searchSpareparts({{ $index }}, $event.target.value)"
-                                                        autocomplete="off" id="sparepart-input-{{ $index }}">
-
-                                                    @if (isset($sparepartResults[$index]))
-                                                        @if (!empty($sparepartResults[$index]))
-                                                            <div class="dropdown-menu show w-100"
-                                                                style="max-height: 200px; overflow-y: auto;"
-                                                                id="dropdown-{{ $index }}">
-                                                                @foreach ($sparepartResults[$index] as $sparepart)
-                                                                    <button type="button" class="dropdown-item"
-                                                                        onmousedown="event.preventDefault();"
-                                                                        wire:click="selectSparepart({{ $index }}, {{ $sparepart['id'] }})">
-                                                                        {{ $sparepart['code'] }} -
-                                                                        {{ $sparepart['name'] }}
-                                                                    </button>
-                                                                @endforeach
-                                                            </div>
-                                                        @elseif(isset($sparepartSearch[$index]) &&
-                                                                strlen($sparepartSearch[$index]) >= 3 &&
-                                                                !$this->sparepartItems[$index]['sparepart_id']
-                                                        )
-                                                            <div class="dropdown-menu show w-100"
-                                                                id="dropdown-{{ $index }}">
-                                                                <div class="dropdown-item-text text-muted">
-                                                                    <i class="fas fa-exclamation-circle"></i> Sparepart
-                                                                    tidak ditemukan
-                                                                </div>
-                                                            </div>
-                                                        @endif
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="number" class="form-control" placeholder="Qty"
-                                                    wire:model="sparepartItems.{{ $index }}.quantity"
-                                                    min="1">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <div class="btn-group w-100">
-                                                    @if ($index == 0)
-                                                        <button type="button" class="btn btn-success btn-sm w-100"
-                                                            wire:click="addSparepartItem" title="Add sparepart">
-                                                            <i class="fas fa-plus"></i>
-                                                        </button>
-                                                    @else
-                                                        <button type="button" class="btn btn-danger btn-sm w-100"
-                                                            wire:click="removeSparepartItem({{ $index }})"
-                                                            title="Remove sparepart">
-                                                            <i class="fas fa-minus"></i>
-                                                        </button>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetSparepartModal"
-                            data-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success btn-pill"
-                            wire:click="submitSparepart">Submit</button>
                     </div>
                 </div>
             </div>
@@ -408,15 +340,17 @@
     @endif
 
     <!-- Activity Modal -->
+    <!-- Activity Modal -->
     @if ($selectedPm)
         <div wire:ignore.self class="modal fade" data-backdrop="static" id="activityModal" tabindex="-1"
             role="dialog">
             <div class="modal-dialog modal-dialog-centered" role="document">
                 <div class="modal-content shadow-lg">
                     <div class="modal-header bg-warning">
-                        <h5 class="modal-title text-white">Activity List</h5>
-                        <button type="button" class="close text-white" wire:click="resetActivityModal"
-                            data-dismiss="modal">
+                        <h5 class="modal-title text-white">
+                            <i class="fas fa-tasks"></i> Activity List (Read-Only)
+                        </h5>
+                        <button type="button" class="close text-white" data-dismiss="modal">
                             <span>&times;</span>
                         </button>
                     </div>
@@ -434,66 +368,164 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <label class="strong">Add a new task <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" wire:model="newTask"
-                                            wire:keydown.enter="addNewTask" placeholder="Enter task name">
-                                        <div class="input-group-append">
-                                            <button class="btn btn-success" wire:click="addNewTask">Add</button>
-                                        </div>
-                                    </div>
-                                </div>
+
                                 <div class="form-group">
                                     <label class="strong">Task List</label>
-                                    <br>
+                                    <div class="alert alert-info" role="alert">
+                                        <i class="fas fa-info-circle"></i>
+                                        Tasks are managed by the assigned team in Assigned SPK page.
+                                    </div>
+
                                     @forelse ($activityLists as $task)
                                         <div class="d-flex align-items-center mb-2">
-                                            @if ($editingTaskId == $task['id'])
-                                                <div class="flex-grow-1 d-flex align-items-center">
-                                                    <input type="text" class="form-control mr-2"
-                                                        wire:model="editingTaskName"
-                                                        wire:keydown.enter="updateTaskName" style="max-width: 300px;">
-                                                    <button class="btn btn-sm btn-pill btn-success mr-1"
-                                                        wire:click="updateTaskName">Save</button>
-                                                    <button class="btn btn-sm btn-secondary btn-pill"
-                                                        wire:click="cancelEditTask">Cancel</button>
-                                                </div>
+                                            <div class="custom-control custom-checkbox flex-grow-1">
+                                                <input type="checkbox" class="custom-control-input"
+                                                    id="task{{ $task['id'] }}"
+                                                    @if ($task['is_done']) checked @endif disabled>
+                                                <label class="custom-control-label" for="task{{ $task['id'] }}">
+                                                    {{ $task['task'] }}
+                                                </label>
+                                            </div>
+                                            @if ($task['is_done'])
+                                                <span class="badge badge-success ml-2">
+                                                    <i class="fas fa-check"></i> Done
+                                                </span>
                                             @else
-                                                <div class="custom-control custom-checkbox flex-grow-1">
-                                                    <input type="checkbox" class="custom-control-input"
-                                                        id="task{{ $task['id'] }}"
-                                                        @if ($task['is_done']) checked @endif
-                                                        wire:click="toggleTask({{ $task['id'] }})">
-                                                    <label class="custom-control-label"
-                                                        for="task{{ $task['id'] }}">
-                                                        {{ $task['task'] }}
-                                                    </label>
-                                                </div>
-                                                <div class="btn-group" role="group">
-                                                    <button class="btn btn-sm btn-outline-primary"
-                                                        wire:click="editTask({{ $task['id'] }})" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-outline-danger"
-                                                        wire:click="deleteTask({{ $task['id'] }})" title="Delete">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
+                                                <span class="badge badge-secondary ml-2">
+                                                    <i class="fas fa-clock"></i> Pending
+                                                </span>
                                             @endif
                                         </div>
                                     @empty
-                                        <p class="text-muted">No tasks added yet.</p>
+                                        <p class="text-muted text-center">
+                                            <i class="fas fa-inbox"></i> No tasks added yet.
+                                        </p>
                                     @endforelse
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-pill" wire:click="resetActivityModal"
-                            data-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success btn-pill"
-                            wire:click="confirmActivityUpdate">Update</button>
+                        <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Assign Team Modal -->
+    @if ($selectedPm)
+        <div wire:ignore.self class="modal fade" data-backdrop="static" id="assignTeamModal" tabindex="-1"
+            role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content shadow-lg">
+                    <div class="modal-header bg-success">
+                        <h5 class="modal-title text-white">
+                            <i class="fas fa-users"></i> Assign Team to PM
+                        </h5>
+                        <button type="button" class="close text-white" wire:click="closeAssignModal"
+                            data-dismiss="modal">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <!-- PIC -->
+                                <div class="form-group">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="strong">PIC <span class="text-danger">*</span></label>
+                                        <small class="text-muted">{{ count($users) }} available</small>
+                                    </div>
+                                    <select class="custom-select" wire:model.live="selectedPic">
+                                        <option value="">Select PIC</option>
+                                        @forelse ($users as $user)
+                                            <option value="{{ $user['id'] }}">
+                                                {{ $user['name'] }} ({{ $user['nup'] }})
+                                            </option>
+                                        @empty
+                                            <option value="" disabled>No users available</option>
+                                        @endforelse
+                                    </select>
+                                    <small class="text-muted">
+                                        PIC will lead the maintenance team
+                                    </small>
+                                </div>
+
+                                <!-- Team Members -->
+                                <div class="form-group">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <label class="strong">Team Members <span class="text-danger">*</span></label>
+                                    </div>
+
+                                    @foreach ($teamMembers as $index => $member)
+                                        <div class="input-group mb-2">
+                                            <select class="custom-select"
+                                                wire:model="teamMembers.{{ $index }}"
+                                                wire:key="team-member-{{ $index }}"
+                                                @disabled($selectedPic == '')>
+                                                <option value="">Select Team Member {{ $index + 1 }}</option>
+
+                                                {{-- Render user yang eligible --}}
+                                                @foreach ($users as $user)
+                                                    @php
+                                                        $alreadyChosen = collect($teamMembers)
+                                                            ->except($index)
+                                                            ->contains($user['id']);
+                                                    @endphp
+                                                    @if ($user['id'] != $selectedPic && !$alreadyChosen)
+                                                        <option value="{{ $user['id'] }}">
+                                                            {{ $user['name'] }} ({{ $user['nup'] }})
+                                                        </option>
+                                                    @endif
+                                                @endforeach
+                                            </select>
+
+                                            <div class="input-group-append">
+                                                @if ($index == 0)
+                                                    @if (count($teamMembers) < count($users) - 1)
+                                                        <button type="button" class="btn btn-success btn-sm"
+                                                            wire:click="addTeamMember"
+                                                            title="Add another team member">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    @endif
+                                                @else
+                                                    <button type="button" class="btn btn-danger btn-sm"
+                                                        wire:click="removeTeamMember({{ $index }})"
+                                                        title="Remove this team member">
+                                                        <i class="fas fa-minus"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+
+                                    <small class="text-muted">
+                                        Select team members from available maintenance staff (max manhour: 420 min/day)
+                                    </small>
+                                </div>
+
+                                @if (count($users) == 0)
+                                    <div class="alert alert-warning" role="alert">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        No available users. All maintenance staff are either at manhour limit or have
+                                        active assignments.
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-pill" wire:click="closeAssignModal"
+                            data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-success btn-pill" wire:click="confirmAssignTeam">
+                            <i class="fas fa-check"></i> Assign Team
+                        </button>
                     </div>
                 </div>
             </div>
@@ -508,18 +540,17 @@
                 <div class="modal-content shadow-lg">
                     <div class="modal-header bg-primary">
                         <h5 class="modal-title text-white">
-                            <i class="fas fa-calendar-alt"></i> Reschedule Preventive Maintenance
+                            <i class="fas fa-calendar-alt"></i> Reschedule PM
                         </h5>
-                        <button type="button" class="close text-white" wire:click="closeRescheduleModal"
-                            data-dismiss="modal">
+                        <button type="button" class="close text-white" data-dismiss="modal">
                             <span>&times;</span>
                         </button>
                     </div>
                     <div class="modal-body">
-                        {{-- <div class="alert alert-info" role="alert">
+                        <div class="alert alert-info" role="alert">
                             <i class="fas fa-info-circle"></i>
-                            Please select a new date for this preventive maintenance. The date must not be in the past.
-                        </div> --}}
+                            Select new date for this preventive maintenance. Date must not be in the past.
+                        </div>
 
                         <div class="form-group">
                             <label class="strong">Current Basic Start Date</label>
@@ -537,18 +568,17 @@
                             @enderror
                         </div>
 
-                        {{-- <div class="alert alert-warning" role="alert">
+                        <div class="alert alert-warning" role="alert">
                             <i class="fas fa-exclamation-triangle"></i>
-                            <strong>Warning:</strong> This action will update the basic start date and change the status
-                            to "RESCHEDULED".
-                        </div> --}}
+                            <strong>Warning:</strong> This will update basic start date and change status to
+                            "RESCHEDULED".
+                        </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-pill" wire:click="closeRescheduleModal"
-                            data-dismiss="modal">
+                        <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal">
                             <i class="fas fa-times"></i> Cancel
                         </button>
-                        <button type="button" class="btn btn-primary btn-pill" wire:click="confirmReschedule">
+                        <button type="button" class="btn btn-primary btn-pill" wire:click="reschedule">
                             <i class="fas fa-check"></i> Confirm Reschedule
                         </button>
                     </div>
@@ -609,65 +639,6 @@
                 $('.modal').modal('hide');
             });
 
-            // Confirm Sparepart Submit
-            Livewire.on('confirmSparepartSubmit', () => {
-                swal({
-                    title: "Are you sure?",
-                    text: "You are about to submit sparepart reservation. This action cannot be undone.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Submit",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                    dangerMode: false,
-                }).then((result) => {
-                    if (result) {
-                        @this.saveSparepartReservation();
-                    }
-                });
-            });
-
-            // Confirm Activity Update
-            Livewire.on('confirmActivityUpdate', () => {
-                swal({
-                    title: "Are you sure?",
-                    text: "You are about to update activity list. This action cannot be undone.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Update",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                    dangerMode: false,
-                }).then((result) => {
-                    if (result) {
-                        @this.updateActivity();
-                    }
-                });
-            });
 
             // Confirm Reschedule
             Livewire.on('confirmReschedule', () => {
@@ -677,14 +648,14 @@
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "No",
+                            text: "Cancel",
                             value: false,
                             visible: true,
                             closeModal: true,
                             className: "btn btn-pill btn-secondary",
                         },
                         confirm: {
-                            text: "Yes",
+                            text: "Yes, Reschedule",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -699,22 +670,36 @@
                 });
             });
 
-            // Confirm Start
-            Livewire.on('confirmStart', () => {
+            // Prevent accidental modal closing
+            $('#detailModal').on('hide.bs.modal', function(e) {
+                if (e.target !== this) return false;
+            });
+
+            Livewire.on('showAssignModal', () => {
+                setTimeout(() => {
+                    $('#assignTeamModal').modal('show');
+                }, 100);
+            });
+
+            Livewire.on('closeAssignModal', () => {
+                $('#assignTeamModal').modal('hide');
+            });
+
+            Livewire.on('confirmAssignTeam', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to start this preventive maintenance.",
+                    text: "You are about to assign team to this preventive maintenance.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "No",
+                            text: "Cancel",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-secondary",
+                            className: "btn btn-pill",
                         },
                         confirm: {
-                            text: "Yes, Start",
+                            text: "Yes, Assign",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -724,27 +709,26 @@
                     dangerMode: false,
                 }).then((result) => {
                     if (result) {
-                        @this.startMaintenance();
+                        @this.assignTeamToPm();
                     }
                 });
             });
 
-            // Confirm Stop
-            Livewire.on('confirmStop', () => {
+            Livewire.on('confirmClosePm', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to stop this preventive maintenance.",
+                    text: "You are about to close this preventive maintenance. This action cannot be undone.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "No",
+                            text: "Cancel",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-secondary",
+                            className: "btn btn-pill",
                         },
                         confirm: {
-                            text: "Yes, Stop",
+                            text: "Yes, Close PM",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -754,14 +738,9 @@
                     dangerMode: true,
                 }).then((result) => {
                     if (result) {
-                        @this.stopMaintenance();
+                        @this.closePm();
                     }
                 });
-            });
-
-            // Prevent accidental modal closing
-            $('#detailModal').on('hide.bs.modal', function(e) {
-                if (e.target !== this) return false;
             });
         });
 
@@ -791,64 +770,6 @@
                 $('#rescheduleModal').modal('hide');
             });
 
-            Livewire.on('confirmSparepartSubmit', () => {
-                swal({
-                    title: "Are you sure?",
-                    text: "You are about to submit sparepart reservation. This action cannot be undone.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Submit",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                    dangerMode: false,
-                }).then((result) => {
-                    if (result) {
-                        @this.saveSparepartReservation();
-                    }
-                });
-            });
-
-            Livewire.on('confirmActivityUpdate', () => {
-                swal({
-                    title: "Are you sure?",
-                    text: "You are about to update activity list. This action cannot be undone.",
-                    icon: "warning",
-                    buttons: {
-                        cancel: {
-                            text: "Cancel",
-                            value: false,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill",
-                        },
-                        confirm: {
-                            text: "Yes, Update",
-                            value: true,
-                            visible: true,
-                            closeModal: true,
-                            className: "btn btn-pill btn-success",
-                        }
-                    },
-                    dangerMode: false,
-                }).then((result) => {
-                    if (result) {
-                        @this.updateActivity();
-                    }
-                });
-            });
-
             Livewire.on('confirmReschedule', () => {
                 swal({
                     title: "Are you sure?",
@@ -856,14 +777,14 @@
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "No",
+                            text: "Cancel",
                             value: false,
                             visible: true,
                             closeModal: true,
                             className: "btn btn-pill btn-secondary",
                         },
                         confirm: {
-                            text: "Yes",
+                            text: "Yes, Reschedule",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -878,21 +799,31 @@
                 });
             });
 
-            Livewire.on('confirmStart', () => {
+            Livewire.on('showAssignModal', () => {
+                setTimeout(() => {
+                    $('#assignTeamModal').modal('show');
+                }, 100);
+            });
+
+            Livewire.on('closeAssignModal', () => {
+                $('#assignTeamModal').modal('hide');
+            });
+
+            Livewire.on('confirmAssignTeam', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to start this preventive maintenance.",
+                    text: "You are about to assign team to this preventive maintenance.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "No",
+                            text: "Cancel",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-secondary",
+                            className: "btn btn-pill",
                         },
                         confirm: {
-                            text: "Yes, Start",
+                            text: "Yes, Assign",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -902,26 +833,26 @@
                     dangerMode: false,
                 }).then((result) => {
                     if (result) {
-                        @this.startMaintenance();
+                        @this.assignTeamToPm();
                     }
                 });
             });
 
-            Livewire.on('confirmStop', () => {
+            Livewire.on('confirmClosePm', () => {
                 swal({
                     title: "Are you sure?",
-                    text: "You are about to stop this preventive maintenance.",
+                    text: "You are about to close this preventive maintenance. This action cannot be undone.",
                     icon: "warning",
                     buttons: {
                         cancel: {
-                            text: "No",
+                            text: "Cancel",
                             value: false,
                             visible: true,
                             closeModal: true,
-                            className: "btn btn-pill btn-secondary",
+                            className: "btn btn-pill",
                         },
                         confirm: {
-                            text: "Yes, Stop",
+                            text: "Yes, Close PM",
                             value: true,
                             visible: true,
                             closeModal: true,
@@ -931,7 +862,7 @@
                     dangerMode: true,
                 }).then((result) => {
                     if (result) {
-                        @this.stopMaintenance();
+                        @this.closePm();
                     }
                 });
             });

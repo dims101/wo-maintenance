@@ -57,7 +57,7 @@
 
 
                     <!-- Table -->
-                    <div class="table-responsive">
+                    {{-- <div class="table-responsive">
                         <table class="table table-striped table-hover table-borderless">
                             <thead class="thead-light">
                                 <tr>
@@ -145,6 +145,219 @@
                                 @endif
                             </tbody>
                         </table>
+                    </div> --}}
+
+                    <!-- Bootstrap Tabs -->
+                    <ul class="nav nav-tabs" id="assignedTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="wo-tab" data-toggle="tab" href="#woTab" role="tab">
+                                <i class="fas fa-tools"></i> Work Orders
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="pm-tab" data-toggle="tab" href="#pmTab" role="tab">
+                                <i class="fas fa-calendar-check"></i> Preventive Maintenance
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="assignedTabsContent">
+                        <!-- ==================== TAB 1: WORK ORDERS ==================== -->
+                        <div class="tab-pane fade show active" id="woTab" role="tabpanel">
+                            <div class="mt-3">
+                                <!-- Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-borderless">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th>Action</th>
+                                                <th>Status</th>
+                                                <th>Notification Number</th>
+                                                <th>Functional Location</th>
+                                                <th>Work Description</th>
+                                                <th>Equipment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @if ($workOrders && $workOrders->count() > 0)
+                                                @foreach ($workOrders as $workOrder)
+                                                    <tr>
+                                                        <td>
+                                                            <div class="btn-group" role="group">
+                                                                <button type="button"
+                                                                    class="btn btn-link btn-lg btn-info"
+                                                                    title="View Details"
+                                                                    wire:click="openDetailModal({{ $workOrder->id }})">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            @switch($workOrder->status)
+                                                                @case('Waiting for SPV Approval')
+                                                                    <span
+                                                                        class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                                @break
+
+                                                                @case('Planned')
+                                                                    <span
+                                                                        class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                                @break
+
+                                                                @case('ON PROGRESS')
+                                                                    <span
+                                                                        class="badge badge-primary">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                                @break
+
+                                                                @case('Requested to be closed')
+                                                                    <span
+                                                                        class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                                @break
+
+                                                                @case('Need Revision')
+                                                                    <span
+                                                                        class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                                @break
+
+                                                                @default
+                                                                    <span
+                                                                        class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
+                                                            @endswitch
+                                                        </td>
+                                                        <td>{{ $workOrder->notification_number }}</td>
+                                                        <td>{{ $workOrder->equipment->functionalLocation->name ?? '-' }}
+                                                        </td>
+                                                        <td>{{ $workOrder->work_desc }}</td>
+                                                        <td>{{ $workOrder->equipment->name ?? '-' }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            @else
+                                                <tr>
+                                                    <td colspan="6" class="text-center">
+                                                        <div class="py-4">
+                                                            <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                                                            <p class="text-muted">No work orders found</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endif
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {{-- debug --}}
+                                {{-- {{ get_class($preventiveMaintenances) }} --}}
+                                <!-- Pagination WO -->
+                                @if ($workOrders->hasPages())
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <div class="d-flex align-items-center">
+                                                <span class="text-muted">
+                                                    Showing {{ $workOrders->firstItem() }} to
+                                                    {{ $workOrders->lastItem() }} of
+                                                    {{ $workOrders->total() }} entries
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-end">
+                                                {{ $workOrders->links() }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- ==================== TAB 2: PREVENTIVE MAINTENANCE ==================== -->
+                        <div class="tab-pane fade" id="pmTab" role="tabpanel">
+                            <div class="mt-3">
+                                <!-- Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-borderless">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th>Action</th>
+                                                <th>Status</th>
+                                                <th>Order</th>
+                                                <th>Notification Number</th>
+                                                <th>Description</th>
+                                                <th>Equipment</th>
+                                                <th>Functional Location</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @if ($preventiveMaintenances && $preventiveMaintenances->count() > 0)
+                                                @foreach ($preventiveMaintenances as $pm)
+                                                    <tr>
+                                                        <td>
+                                                            <div class="btn-group" role="group">
+                                                                <button type="button"
+                                                                    class="btn btn-link btn-lg btn-success"
+                                                                    title="View Details"
+                                                                    wire:click="openDetailModalPm({{ $pm->id }})">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            @php
+                                                                $badgeClass = match (
+                                                                    strtoupper($pm->user_status ?? '')
+                                                                ) {
+                                                                    'ASSIGNED' => 'badge-info',
+                                                                    'ON PROGRESS' => 'badge-primary',
+                                                                    'REQUESTED TO BE CLOSED' => 'badge-warning',
+                                                                    'COMPLETED' => 'badge-success',
+                                                                    default => 'badge-secondary',
+                                                                };
+                                                            @endphp
+                                                            <span class="badge {{ $badgeClass }}">
+                                                                {{ $pm->user_status ?? 'Not Set' }}
+                                                            </span>
+                                                        </td>
+                                                        <td>{{ $pm->order }}</td>
+                                                        <td>{{ $pm->notification_number ?? '-' }}</td>
+                                                        <td>{{ $pm->description ?? '-' }}</td>
+                                                        <td>{{ $pm->equipment ?? '-' }}</td>
+                                                        <td>{{ $pm->functional_location ?? '-' }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            @else
+                                                <tr>
+                                                    <td colspan="7" class="text-center">
+                                                        <div class="py-4">
+                                                            <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                                                            <p class="text-muted">No preventive maintenance found</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endif
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Pagination PM -->
+                                @if ($preventiveMaintenances->hasPages())
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <div class="d-flex align-items-center">
+                                                <span class="text-muted">
+                                                    Showing {{ $preventiveMaintenances->firstItem() }} to
+                                                    {{ $preventiveMaintenances->lastItem() }} of
+                                                    {{ $preventiveMaintenances->total() }} entries
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-end">
+                                                {{ $preventiveMaintenances->links() }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Pagination -->
@@ -177,7 +390,8 @@
                 <div class="modal-content">
                     <div class="modal-header bg-primary">
                         <h5 class="modal-title">Assign Approval - {{ $selectedWorkOrder->notification_number }}</h5>
-                        <button type="button" class="close text-white" data-dismiss="modal" wire:click="closeModal">
+                        <button type="button" class="close text-white" data-dismiss="modal"
+                            wire:click="closeModal">
                             <span>&times;</span>
                         </button>
                     </div>
@@ -332,6 +546,334 @@
                                     <i class="fas fa-play-circle"></i> Start Work
                                 </button>
                             @endif
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Detail Modal PM -->
+    @if ($selectedPm)
+        <div wire:ignore.self class="modal fade" id="detailModalPm" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-xl" role="document">
+                <div class="modal-content">
+                    <div class="modal-header bg-success">
+                        <h5 class="modal-title">Preventive Maintenance - {{ $selectedPm->order }}</h5>
+                        <button type="button" class="close text-white" data-dismiss="modal"
+                            wire:click="closeModalPm">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Tabs for PM -->
+                        <ul class="nav nav-tabs" id="pmDetailTabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-toggle="tab" href="#pmInfoTab">
+                                    <i class="fas fa-info-circle"></i> Info
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-toggle="tab" href="#pmActivityTab">
+                                    <i class="fas fa-tasks"></i> Activity List
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-toggle="tab" href="#pmSparepartTab">
+                                    <i class="fas fa-tools"></i> Sparepart
+                                </a>
+                            </li>
+                            {{-- manhours here --}}
+                            {{-- <li class="nav-item">
+                                <a class="nav-link" data-toggle="tab" href="#pmManhourTab">
+                                    <i class="fas fa-clock"></i> Manhour
+                                </a>
+                            </li> --}}
+                        </ul>
+
+                        <div class="tab-content mt-3">
+                            <!-- Tab 1: Info -->
+                            <div class="tab-pane fade show active" id="pmInfoTab">
+                                <div class="row">
+                                    <!-- Left Column -->
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="strong">Order</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->order }}" readonly>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">Notification Number</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->notification_number ?? '-' }}" readonly>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">Main Work Center</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->main_workctr ?? '-' }}" readonly>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">Description</label>
+                                            <textarea class="form-control" rows="3" readonly>{{ $selectedPm->description ?? '-' }}</textarea>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">Equipment</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->equipment ?? '-' }}" readonly>
+                                        </div>
+                                    </div>
+
+                                    <!-- Right Column -->
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="strong">Functional Location</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->functional_location ?? '-' }}" readonly>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">System Status</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->system_status ?? '-' }}" readonly>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">User Status</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->user_status ?? '-' }}" readonly>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="strong">Basic Start Date</label>
+                                            <input type="text" class="form-control"
+                                                value="{{ $selectedPm->basic_start_date ? $selectedPm->basic_start_date->format('d-m-Y') : '-' }}"
+                                                readonly>
+                                        </div>
+
+                                        <!-- Assigned Team -->
+                                        <div class="form-group">
+                                            <label class="strong">Assigned Team</label>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    @foreach ($selectedPm->teamAssignments as $assignment)
+                                                        <div
+                                                            class="d-flex justify-content-between align-items-center mb-2">
+                                                            <div>
+                                                                <i class="fas fa-user"></i>
+                                                                {{ $assignment->user->name }}
+                                                            </div>
+                                                            @if ($assignment->is_pic)
+                                                                <span class="badge badge-primary">
+                                                                    <i class="fas fa-star"></i> PIC
+                                                                </span>
+                                                            @else
+                                                                <span class="badge badge-secondary">
+                                                                    <i class="fas fa-users"></i> Team
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab 2: Activity List -->
+                            <div class="tab-pane fade" id="pmActivityTab">
+                                <div class="form-group">
+                                    <label class="strong">Progress</label>
+                                    <div class="progress">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                            role="progressbar" aria-valuenow="{{ $this->calculateProgressPm() }}"
+                                            aria-valuemin="0" aria-valuemax="100"
+                                            style="width: {{ $this->calculateProgressPm() }}%">
+                                            {{ $this->calculateProgressPm() }}%
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Add a new task</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" wire:model="newTask"
+                                            wire:keydown.enter="addNewTaskPm" placeholder="Enter task name">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-success" wire:click="addNewTaskPm">Add</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="strong">Task List</label>
+                                    @forelse ($activityLists as $task)
+                                        <div class="d-flex align-items-center mb-2">
+                                            @if ($editingTaskId == $task['id'])
+                                                <div class="flex-grow-1 d-flex align-items-center">
+                                                    <input type="text" class="form-control mr-2"
+                                                        wire:model="editingTaskName"
+                                                        wire:keydown.enter="updateTaskNamePm"
+                                                        style="max-width: 300px;">
+                                                    <button class="btn btn-sm btn-pill btn-success mr-1"
+                                                        wire:click="updateTaskNamePm">Save</button>
+                                                    <button class="btn btn-sm btn-secondary btn-pill"
+                                                        wire:click="cancelEditTaskPm">Cancel</button>
+                                                </div>
+                                            @else
+                                                <div class="custom-control custom-checkbox flex-grow-1">
+                                                    <input type="checkbox" class="custom-control-input"
+                                                        id="taskPm{{ $task['id'] }}"
+                                                        @if ($task['is_done']) checked @endif
+                                                        wire:click="toggleTaskPm({{ $task['id'] }})">
+                                                    <label class="custom-control-label"
+                                                        for="taskPm{{ $task['id'] }}">
+                                                        {{ $task['task'] }}
+                                                    </label>
+                                                </div>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary"
+                                                        wire:click="editTaskPm({{ $task['id'] }})" title="Edit">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                        wire:click="deleteTaskPm({{ $task['id'] }})"
+                                                        title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @empty
+                                        <p class="text-muted">No tasks added yet.</p>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            <!-- Tab 3: Sparepart (Similar to WO) -->
+                            <div class="tab-pane fade" id="pmSparepartTab">
+                                <div class="form-group">
+                                    <label class="strong">Sparepart Reservation</label>
+                                    @foreach ($sparepartItems as $index => $item)
+                                        <div class="row mb-2">
+                                            <div class="col-md-7">
+                                                <input type="text" class="form-control"
+                                                    placeholder="Sparepart name"
+                                                    wire:model="sparepartItems.{{ $index }}.requested_sparepart"
+                                                    @if (isset($item['is_completed']) && $item['is_completed']) readonly @endif>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="number" class="form-control" placeholder="Qty"
+                                                    wire:model="sparepartItems.{{ $index }}.quantity"
+                                                    @if (isset($item['is_completed']) && $item['is_completed']) readonly @endif min="1">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="btn-group w-100">
+                                                    @if ($index == 0 && (!isset($item['is_completed']) || !$item['is_completed']))
+                                                        <button type="button" class="btn btn-success btn-sm w-100"
+                                                            wire:click="addSparepartItem" title="Add sparepart">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    @elseif(!isset($item['is_completed']) || !$item['is_completed'])
+                                                        <button type="button" class="btn btn-danger btn-sm w-100"
+                                                            wire:click="removeSparepartItem({{ $index }})"
+                                                            title="Remove sparepart">
+                                                            <i class="fas fa-minus"></i>
+                                                        </button>
+                                                    @endif
+
+                                                    @if (isset($item['is_completed']) && $item['is_completed'])
+                                                        <span class="badge badge-success w-100 p-2">
+                                                            <i class="fas fa-check"></i> Completed
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+
+                                    <button type="button" class="btn btn-success btn-sm mt-2"
+                                        wire:click="submitSparepartPm">
+                                        <i class="fas fa-save"></i> Submit Sparepart
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Tab 4: Manhour History -->
+                            <div class="tab-pane fade" id="pmManhourTab">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Start</th>
+                                                <th>Stop</th>
+                                                <th>Duration (min)</th>
+                                                <th>Shift</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($selectedPm->actualManhours as $manhour)
+                                                <tr>
+                                                    <td>{{ $manhour->user->name ?? '-' }}</td>
+                                                    <td>{{ $manhour->start_job ? $manhour->start_job->format('d-m-Y H:i') : '-' }}
+                                                    </td>
+                                                    <td>{{ $manhour->stop_job ? $manhour->stop_job->format('d-m-Y H:i') : '-' }}
+                                                    </td>
+                                                    <td>{{ $manhour->actual_time ?? '-' }}</td>
+                                                    <td>
+                                                        <span class="badge badge-info">Shift
+                                                            {{ $manhour->shift ?? '-' }}</span>
+                                                    </td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-muted">No manhour
+                                                        recorded yet</td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal"
+                            wire:click="closeModalPm">
+                            Close
+                        </button>
+
+                        <!-- Active Session Indicator here-->
+                        {{-- @if ($activeSessionUser && $activeSessionUser->pm_id == $selectedPm->id)
+                            <span class="badge badge-success mr-2">
+                                <i class="fas fa-play"></i> Active Session:
+                                {{ \Carbon\Carbon::parse($startTime)->diffForHumans(null, true) }}
+                            </span>
+                        @endif --}}
+
+                        <!-- Start/Stop Work Buttons -->
+                        @if (!$activeSessionUser)
+                            <button type="button" class="btn btn-success btn-pill" wire:click="confirmStartPm">
+                                <i class="fas fa-play"></i> Start Work
+                            </button>
+                        @elseif($activeSessionUser->pm_id == $selectedPm->id)
+                            <button type="button" class="btn btn-danger btn-pill" wire:click="confirmStopPm">
+                                <i class="fas fa-stop"></i> Stop Work
+                            </button>
+                        @endif
+
+                        <!-- Request Close Button -->
+                        @if ($selectedPm->user_status != 'REQUESTED TO BE CLOSED' && $selectedPm->user_status != 'COMPLETED')
+                            <button type="button" class="btn btn-warning btn-pill" wire:click="confirmClosePm">
+                                <i class="fas fa-check-circle"></i> Request Close
+                            </button>
                         @endif
                     </div>
                 </div>
@@ -926,6 +1468,130 @@
             $('#detailModal').on('hide.bs.modal', function(e) {
                 if (e.target !== this) return false;
             });
+
+            // ==================== PM EVENT LISTENERS ====================
+
+            Livewire.on('showDetailModalPm', () => {
+                setTimeout(() => {
+                    $('#detailModalPm').modal('show');
+                }, 100);
+            });
+
+            Livewire.on('confirmStartManhourPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to start work on this PM.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Start",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.startManhourPm();
+                    }
+                });
+            });
+
+            Livewire.on('confirmStopManhourPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to stop work on this PM.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Stop",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger",
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.stopManhourPm();
+                    }
+                });
+            });
+
+            Livewire.on('confirmSparepartSubmitPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to submit sparepart reservation.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.saveSparepartReservationPm();
+                    }
+                });
+            });
+
+            Livewire.on('confirmClosePm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to request close for this PM. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Request Close",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-warning",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.closeWorkOrderPm();
+                    }
+                });
+            });
         });
 
         document.addEventListener('livewire:navigated', function() {
@@ -1176,6 +1842,129 @@
                 });
             });
 
+            // ==================== PM EVENT LISTENERS ====================
+
+            Livewire.on('showDetailModalPm', () => {
+                setTimeout(() => {
+                    $('#detailModalPm').modal('show');
+                }, 100);
+            });
+
+            Livewire.on('confirmStartManhourPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to start work on this PM.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Start",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.startManhourPm();
+                    }
+                });
+            });
+
+            Livewire.on('confirmStopManhourPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to stop work on this PM.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Stop",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-danger",
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.stopManhourPm();
+                    }
+                });
+            });
+
+            Livewire.on('confirmSparepartSubmitPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to submit sparepart reservation.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Submit",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.saveSparepartReservationPm();
+                    }
+                });
+            });
+
+            Livewire.on('confirmClosePm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to request close for this PM. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Request Close",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-warning",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.closeWorkOrderPm();
+                    }
+                });
+            });
         });
     </script>
 @endpush

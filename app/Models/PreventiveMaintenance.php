@@ -49,4 +49,24 @@ class PreventiveMaintenance extends Model
             'deleted_at' => 'datetime',
         ];
     }
+
+    public function teamAssignments()
+    {
+        return $this->hasMany(TeamAssignment::class, 'pm_id');
+    }
+
+    public function activityLists()
+    {
+        return $this->hasMany(ActivityList::class, 'pm_id');
+    }
+
+    public function sparepartLists()
+    {
+        return $this->hasMany(SparepartList::class, 'pm_id');
+    }
+
+    public function actualManhours()
+    {
+        return $this->hasMany(ActualManhour::class, 'pm_id');
+    }
 }

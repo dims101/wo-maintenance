@@ -61,6 +61,17 @@ class AssignedSpk extends Component
 
     public $isBeingWorked = null;
 
+    // PM Properties
+    public $selectedPmId = null;
+
+    public $selectedPm = null;
+
+    // public $preventiveMaintenances = [];
+
+    public $pmPerPage = 10;
+
+    public $activeTab = 'wo'; // 'wo' or 'pm'
+
     protected $paginationTheme = 'bootstrap';
 
     public function mount()
@@ -169,7 +180,7 @@ class AssignedSpk extends Component
 
     public function checkActiveSession()
     {
-        // Cek apakah user sedang punya session aktif di WO MANAPUN
+        // Cek apakah user sedang punya session aktif di WO atau PM MANAPUN
         $this->activeSessionUser = ActualManhour::where('user_id', Auth::user()->id)
             ->whereNull('stop_job')
             ->first();
@@ -555,6 +566,11 @@ class AssignedSpk extends Component
         $this->resetPage();
     }
 
+    public function updatedPmPerPage()
+    {
+        $this->resetPage('pmPage');
+    }
+
     public function openDetailModal($workOrderId)
     {
         $this->selectedWorkOrderId = $workOrderId;
@@ -598,6 +614,359 @@ class AssignedSpk extends Component
         $this->isSparepartReserved = null;
         $this->isBeingWorked = null;
         $this->reason = '';
+    }
+
+    // ==================== PM DETAIL MODAL ====================
+
+    public function openDetailModalPm($pmId)
+    {
+        $this->selectedPmId = $pmId;
+        $this->selectedPm = \App\Models\PreventiveMaintenance::with(['teamAssignments.user'])->find($pmId);
+
+        if (! $this->selectedPm) {
+            session()->flash('error', 'PM not found.');
+
+            return;
+        }
+
+        $this->loadActivityListsForPm();
+        $this->loadSparepartItemsForPm();
+        $this->checkActiveSession();
+        $this->dispatch('showDetailModalPm');
+    }
+
+    public function closeModalPm()
+    {
+        $this->selectedPmId = null;
+        $this->selectedPm = null;
+        $this->activityLists = [];
+        $this->sparepartItems = [['requested_sparepart' => '', 'quantity' => '', 'is_completed' => false]];
+        $this->newTask = '';
+        $this->editingTaskId = null;
+        $this->editingTaskName = '';
+    }
+
+    // ==================== PM ACTIVITY LIST ====================
+
+    public function loadActivityListsForPm()
+    {
+        if ($this->selectedPmId) {
+            $this->activityLists = ActivityList::where('pm_id', $this->selectedPmId)->get()->toArray();
+        }
+    }
+
+    public function addNewTaskPm()
+    {
+        if (trim($this->newTask) === '') {
+            return;
+        }
+
+        ActivityList::create([
+            'pm_id' => $this->selectedPmId,
+            'task' => trim($this->newTask),
+            'is_done' => false,
+        ]);
+
+        $this->newTask = '';
+        $this->loadActivityListsForPm();
+    }
+
+    public function toggleTaskPm($taskId)
+    {
+        $task = ActivityList::find($taskId);
+        if ($task) {
+            $task->update(['is_done' => ! $task->is_done]);
+            $this->loadActivityListsForPm();
+        }
+    }
+
+    public function editTaskPm($taskId)
+    {
+        $task = ActivityList::find($taskId);
+        if ($task) {
+            $this->editingTaskId = $taskId;
+            $this->editingTaskName = $task->task;
+        }
+    }
+
+    public function updateTaskNamePm()
+    {
+        if (trim($this->editingTaskName) === '') {
+            return;
+        }
+
+        $task = ActivityList::find($this->editingTaskId);
+        if ($task) {
+            $task->update(['task' => trim($this->editingTaskName)]);
+            $this->editingTaskId = null;
+            $this->editingTaskName = '';
+            $this->loadActivityListsForPm();
+        }
+    }
+
+    public function cancelEditTaskPm()
+    {
+        $this->editingTaskId = null;
+        $this->editingTaskName = '';
+    }
+
+    public function deleteTaskPm($taskId)
+    {
+        ActivityList::destroy($taskId);
+        $this->loadActivityListsForPm();
+    }
+
+    public function calculateProgressPm()
+    {
+        if (empty($this->activityLists)) {
+            return 0.0;
+        }
+
+        $completedTasks = array_filter($this->activityLists, function ($task) {
+            return $task['is_done'] == true;
+        });
+
+        return round((count($completedTasks) / count($this->activityLists)) * 100, 1);
+    }
+
+    // ==================== PM SPAREPART ====================
+
+    public function loadSparepartItemsForPm()
+    {
+        $savedItems = SparepartList::where('pm_id', $this->selectedPmId)
+            ->whereNotNull('requested_sparepart')
+            ->get();
+
+        if ($savedItems->isNotEmpty()) {
+            $this->sparepartItems = [];
+
+            foreach ($savedItems as $item) {
+                $this->sparepartItems[] = [
+                    'id' => $item->id,
+                    'requested_sparepart' => $item->requested_sparepart,
+                    'quantity' => $item->qty,
+                    'is_completed' => $item->is_completed ?? false,
+                ];
+            }
+        } else {
+            $this->sparepartItems = [['requested_sparepart' => '', 'quantity' => '', 'is_completed' => false]];
+        }
+    }
+
+    public function submitSparepartPm()
+    {
+        $validItems = array_filter($this->sparepartItems, function ($item) {
+            $isCompleted = isset($item['is_completed']) && $item['is_completed'];
+
+            return ! $isCompleted && ! empty($item['requested_sparepart']) && ! empty($item['quantity']);
+        });
+
+        if (empty($validItems)) {
+            session()->flash('error', 'Please add at least one new sparepart with quantity.');
+
+            return;
+        }
+
+        $this->dispatch('confirmSparepartSubmitPm');
+    }
+
+    public function saveSparepartReservationPm()
+    {
+        $validItems = array_filter($this->sparepartItems, function ($item) {
+            $isCompleted = isset($item['is_completed']) && $item['is_completed'];
+
+            return ! $isCompleted && ! empty($item['requested_sparepart']) && ! empty($item['quantity']);
+        });
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($validItems as $item) {
+                if (isset($item['id'])) {
+                    continue;
+                }
+
+                SparepartList::create([
+                    'pm_id' => $this->selectedPmId,
+                    'barcode' => null,
+                    'requested_sparepart' => $item['requested_sparepart'],
+                    'qty' => $item['quantity'],
+                    'uom' => null,
+                    'is_completed' => false,
+                ]);
+            }
+
+            DB::commit();
+
+            $this->loadSparepartItemsForPm();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Sparepart reservation saved successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'An error occurred while saving sparepart reservation.');
+        }
+    }
+
+    // ==================== PM MANHOUR (START/STOP) ====================
+
+    public function confirmStartPm()
+    {
+        // Validasi user harus di-assign ke team PM
+        if (! $this->isUserAssignedToPm($this->selectedPmId)) {
+            session()->flash('error', 'You are not assigned to this PM team.');
+
+            return;
+        }
+
+        // Validasi user tidak boleh punya active session di WO atau PM manapun
+        $activeSession = ActualManhour::where('user_id', Auth::user()->id)
+            ->whereNull('stop_job')
+            ->first();
+
+        if ($activeSession) {
+            if ($activeSession->wo_id) {
+                $activeWO = WorkOrder::find($activeSession->wo_id);
+                session()->flash('error', 'You have an active session on Work Order: '.$activeWO->notification_number.'. Please stop it first.');
+            } else {
+                $activePM = \App\Models\PreventiveMaintenance::find($activeSession->pm_id);
+                session()->flash('error', 'You have an active session on PM: '.$activePM->order.'. Please stop it first.');
+            }
+
+            return;
+        }
+
+        $this->dispatch('confirmStartManhourPm');
+    }
+
+    public function startManhourPm()
+    {
+        try {
+            DB::beginTransaction();
+
+            // Insert manhour
+            ActualManhour::create([
+                'user_id' => Auth::user()->id,
+                'pm_id' => $this->selectedPmId,
+                'start_job' => now(),
+            ]);
+
+            // Update PM status ke ON PROGRESS (jika masih ASSIGNED)
+            $pm = \App\Models\PreventiveMaintenance::find($this->selectedPmId);
+            if ($pm && $pm->user_status === 'ASSIGNED') {
+                $pm->update(['user_status' => 'ON PROGRESS']);
+            }
+
+            DB::commit();
+
+            $this->checkActiveSession();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Work session started successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to start work session: '.$e->getMessage());
+        }
+    }
+
+    public function confirmStopPm()
+    {
+        if (! $this->activeSessionUser) {
+            session()->flash('error', 'No active session found.');
+
+            return;
+        }
+
+        $this->dispatch('confirmStopManhourPm');
+    }
+
+    public function stopManhourPm()
+    {
+        try {
+            DB::beginTransaction();
+
+            if (! $this->activeSessionUser) {
+                throw new \Exception('No active session found.');
+            }
+
+            $this->activeSessionUser->update([
+                'stop_job' => now(),
+            ]);
+
+            DB::commit();
+
+            $this->activeSessionUser = null;
+            $this->startTime = null;
+            $this->checkActiveSession();
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Work session stopped successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to stop work session: '.$e->getMessage());
+        }
+    }
+
+    // ==================== PM HELPER METHODS ====================
+
+    public function isUserAssignedToPm($pmId)
+    {
+        return TeamAssignment::where('pm_id', $pmId)
+            ->where('user_id', Auth::user()->id)
+            ->exists();
+    }
+
+    public function isUserPicPm($pmId)
+    {
+        return TeamAssignment::where('pm_id', $pmId)
+            ->where('user_id', Auth::user()->id)
+            ->where('is_pic', true)
+            ->exists();
+    }
+
+    // ==================== PM REQUEST CLOSE ====================
+
+    public function confirmClosePm()
+    {
+        // Validasi progress harus 100%
+        if ($this->calculateProgressPm() != 100) {
+            $this->dispatch('unfinished');
+
+            return;
+        }
+
+        $this->dispatch('confirmClosePm');
+    }
+
+    public function closeWorkOrderPm()
+    {
+        try {
+            DB::beginTransaction();
+
+            $pm = \App\Models\PreventiveMaintenance::find($this->selectedPmId);
+
+            if (! $pm) {
+                throw new \Exception('PM not found.');
+            }
+
+            // Validasi progress 100%
+            if ($this->calculateProgressPm() != 100) {
+                throw new \Exception('All tasks must be completed before closing.');
+            }
+
+            // Update status ke REQUESTED TO BE CLOSED
+            $pm->update(['user_status' => 'REQUESTED TO BE CLOSED']);
+
+            $this->selectedPm = $pm;
+
+            DB::commit();
+
+            $this->dispatch('closeAllModals');
+            session()->flash('message', "PM's close request successfully submitted");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', $e->getMessage());
+        }
     }
 
     public function getSpvDetail($spvId)
@@ -703,15 +1072,25 @@ class AssignedSpk extends Component
     {
         $userId = Auth::user()->id;
 
-        $query = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
+        // ==================== WORK ORDERS QUERY ====================
+        $woQuery = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
             ->where('is_spv_rejected', 'false')
-            ->whereIn('status', ['Planned', 'Need Revision'])
+            ->whereIn('status', ['Planned', 'Need Revision', 'ON PROGRESS', 'Requested to be closed'])
             ->whereHas('maintenanceApproval.teamAssignments', function ($q) use ($userId) {
                 $q->where('user_id', $userId);
             });
 
+        // ==================== PM QUERY ====================
+        $pmQuery = \App\Models\PreventiveMaintenance::with(['teamAssignments.user'])
+            ->whereIn('user_status', ['ASSIGNED', 'ON PROGRESS', 'REQUESTED TO BE CLOSED'])
+            ->whereHas('teamAssignments', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            });
+
+        // ==================== SEARCH (GLOBAL) ====================
         if ($this->search) {
-            $query->where(function ($q) {
+            // Search WO
+            $woQuery->where(function ($q) {
                 $q->whereHas('user', function ($userQuery) {
                     $userQuery->where('name', 'ilike', '%'.$this->search.'%');
                 })
@@ -722,13 +1101,25 @@ class AssignedSpk extends Component
                     ->orWhere('urgent_level', 'ilike', '%'.$this->search.'%')
                     ->orWhere('notification_number', 'ilike', '%'.$this->search.'%');
             });
+
+            // Search PM
+            $pmQuery->where(function ($q) {
+                $q->where('order', 'ilike', '%'.$this->search.'%')
+                    ->orWhere('notification_number', 'ilike', '%'.$this->search.'%')
+                    ->orWhere('description', 'ilike', '%'.$this->search.'%')
+                    ->orWhere('user_status', 'ilike', '%'.$this->search.'%')
+                    ->orWhere('equipment', 'ilike', '%'.$this->search.'%')
+                    ->orWhere('functional_location', 'ilike', '%'.$this->search.'%');
+            });
         }
 
-        $workOrders = $query->orderBy('created_at', 'desc')
-            ->paginate($this->perPage);
+        // ==================== PAGINATION (TERPISAH) ====================
+        $workOrders = $woQuery->orderBy('created_at', 'desc')->paginate($this->perPage, ['*'], 'woPage');
+        $preventiveMaintenances = $pmQuery->orderBy('created_at', 'desc')->paginate($this->pmPerPage, ['*'], 'pmPage');
 
         return view('livewire.assigned-spk', [
             'workOrders' => $workOrders,
+            'preventiveMaintenances' => $preventiveMaintenances,
         ]);
     }
 }

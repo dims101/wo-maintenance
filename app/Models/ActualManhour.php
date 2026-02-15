@@ -21,6 +21,7 @@ class ActualManhour extends Model
         'start_job',
         'stop_job',
         'actual_time',
+        'pm_id',
     ];
 
     protected function casts(): array
@@ -111,5 +112,10 @@ class ActualManhour extends Model
     public function workOrder()
     {
         return $this->belongsTo(WorkOrder::class, 'wo_id');
+    }
+
+    public function preventiveMaintenance()
+    {
+        return $this->belongsTo(PreventiveMaintenance::class, 'pm_id');
     }
 }

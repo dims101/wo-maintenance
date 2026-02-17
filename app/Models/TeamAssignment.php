@@ -15,12 +15,14 @@ class TeamAssignment extends Model
         'user_id',
         'is_pic',
         'pm_id',
+        'is_active',
     ];
 
     protected function casts(): array
     {
         return [
             'is_pic' => 'boolean',
+            'is_active' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',

@@ -727,9 +727,8 @@
                                             @else
                                                 <div class="custom-control custom-checkbox flex-grow-1">
                                                     <input type="checkbox" class="custom-control-input"
-                                                        id="taskPm{{ $task['id'] }}"
-                                                        @if ($task['is_done']) checked @endif
-                                                        wire:click="toggleTaskPm({{ $task['id'] }})">
+                                                        id="taskPm{{ $task['id'] }}" @disabled($task['planner_group_id'] != auth()->user()->planner_group_id)
+                                                        wire:model.live="tempActivityStates.{{ $task['id'] }}">
                                                     <label class="custom-control-label"
                                                         for="taskPm{{ $task['id'] }}">
                                                         {{ $task['task'] }}
@@ -751,6 +750,12 @@
                                     @empty
                                         <p class="text-muted">No tasks added yet.</p>
                                     @endforelse
+                                </div>
+                                <div class="mt-3">
+                                    <button type="button" class="btn btn-success btn-pill"
+                                        wire:click="confirmProgressPm">
+                                        <i class="fas fa-check"></i> Update Progress
+                                    </button>
                                 </div>
                             </div>
 
@@ -1029,9 +1034,8 @@
                                                         <div class="custom-control custom-checkbox flex-grow-1">
                                                             <input type="checkbox" class="custom-control-input"
                                                                 id="task{{ $task['id'] }}"
-                                                                @if ($task['is_done']) checked @endif
-                                                                wire:click="toggleTask({{ $task['id'] }})"
-                                                                @disabled(auth()->user()->planner_group_id != $task['planner_group_id'])>
+                                                                @disabled($task['planner_group_id'] != auth()->user()->planner_group_id)
+                                                                wire:model.live="tempActivityStates.{{ $task['id'] }}">
                                                             <label class="custom-control-label"
                                                                 for="task{{ $task['id'] }}">
                                                                 {{ $task['task'] }}
@@ -1592,11 +1596,39 @@
                     }
                 });
             });
+            // ==================== CONFIRM PROGRESS PM ====================
+            Livewire.on('confirmProgressPm', () => {
+                swal({
+                    title: "Are you sure?",
+                    text: "You are about to update work progress. This action cannot be undone.",
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Update",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: false,
+                }).then((result) => {
+                    if (result) {
+                        @this.updateProgressPm();
+                    }
+                });
+            });
         });
 
         document.addEventListener('livewire:navigated', function() {
             // Duplicate event listeners for SPA navigation
-
             // Confirm Assign Self
             Livewire.on('confirmAssignSelf', () => {
                 swal({
@@ -1964,6 +1996,36 @@
                         @this.closeWorkOrderPm();
                     }
                 });
+            });
+        });
+
+        // ==================== CONFIRM PROGRESS PM ====================
+        Livewire.on('confirmProgressPm', () => {
+            swal({
+                title: "Are you sure?",
+                text: "You are about to update work progress. This action cannot be undone.",
+                icon: "warning",
+                buttons: {
+                    cancel: {
+                        text: "Cancel",
+                        value: false,
+                        visible: true,
+                        closeModal: true,
+                        className: "btn btn-pill",
+                    },
+                    confirm: {
+                        text: "Yes, Update",
+                        value: true,
+                        visible: true,
+                        closeModal: true,
+                        className: "btn btn-pill btn-success",
+                    }
+                },
+                dangerMode: false,
+            }).then((result) => {
+                if (result) {
+                    @this.updateProgressPm();
+                }
             });
         });
     </script>

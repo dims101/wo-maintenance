@@ -450,46 +450,68 @@ class MonitoringSpk extends Component
 
     public function render()
     {
-        $isSpvUser = Auth::user()->dept_id != 1 && Auth::user()->role_id == 3 ? true : false;
-        $isUser = Auth::user()->role_id == 5 ? true : false;
-        $isSpvMaintenance = Auth::user()->dept_id == 1 && Auth::user()->role_id == 3 ? true : false;
+        $user = Auth::user();
 
-        $query = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
-            ->leftJoin('maintenance_approvals', 'maintenance_approvals.wo_id', 'work_orders.id')
-            // ->where('is_spv_rejected', 'false')
-            ->when($isSpvUser, function ($q) {
-                $q->where('req_dept_id', Auth::user()->dept_id);
-            })
-            ->when($isSpvMaintenance, function ($q) {
-                $q->where('planner_group_id', Auth::user()->planner_group_id)
-                    ->where('status', '!=', 'Waiting for SPV Approval');
-            })
-            ->when($isUser, function ($q) {
-                $q->where('req_user_id', Auth::user()->id);
-            })
-            ->select('work_orders.*', 'maintenance_approvals.progress');
+        $isSpvUser = $user->dept_id != 1 && $user->dept_id != 4 && in_array($user->role_id, [3, 2]);
+        $isUser = $user->dept_id != 1 && $user->dept_id != 4 && $user->role_id == 5;
+        $isSpvMaintenance = $user->dept_id == 1 && $user->role_id == 3;
+        $isAssigned = $user->dept_id == 1 && in_array($user->role_id, [4, 5]);
+        $isWarehouse = $user->dept_id == 4;
 
-        // Department::where('id', Auth::user()->dept_id)->value('spv_id')
+        $query = WorkOrder::with([
+            'equipment.functionalLocation.resource.plant',
+            'department',
+            'user',
+        ])
+            ->leftJoin('maintenance_approvals', 'maintenance_approvals.wo_id', 'work_orders.id');
+
+        // ================= ROLE FILTER =================
+
+        if ($isSpvUser) {
+            $query->where('req_dept_id', $user->dept_id);
+        }
+
+        if ($isSpvMaintenance) {
+            $query->where('planner_group_id', $user->planner_group_id)
+                ->where('status', '!=', 'Waiting for SPV Approval');
+        }
+
+        if ($isUser) {
+            $query->where('req_user_id', $user->id);
+        }
+
+        if ($isAssigned) {
+            $query->leftJoin('team_assignments', 'team_assignments.approval_id', 'maintenance_approvals.id')
+                ->where('work_orders.planner_group_id', $user->planner_group_id)
+                ->where('team_assignments.user_id', $user->id)
+                ->where('team_assignments.is_active', true);
+        }
+
+        if ($isWarehouse) {
+            $query->whereHas('sparepartList');
+        }
+
+        // ================= SEARCH =================
 
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereHas('user', function ($userQuery) {
-                    $userQuery->where('name', 'ilike', '%'.$this->search.'%');
-                })
-                    ->orWhereHas('department', function ($deptQuery) {
-                        $deptQuery->where('name', 'ilike', '%'.$this->search.'%');
-                    })
-                    ->orWhere('status', 'ilike', '%'.$this->search.'%')
-                    ->orWhere('urgent_level', 'ilike', '%'.$this->search.'%')
-                    ->orWhere('notification_number', 'ilike', '%'.$this->search.'%');
+            $search = $this->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user', fn ($uq) => $uq->where('name', 'ilike', "%{$search}%")
+                )
+                    ->orWhereHas('department', fn ($dq) => $dq->where('name', 'ilike', "%{$search}%")
+                    )
+                    ->orWhere('work_orders.status', 'ilike', "%{$search}%")
+                    ->orWhere('work_orders.urgent_level', 'ilike', "%{$search}%")
+                    ->orWhere('work_orders.notification_number', 'ilike', "%{$search}%");
             });
         }
 
-        $workOrders = $query->orderBy('work_orders.created_at', 'desc')
+        $workOrders = $query
+            ->select('work_orders.*', 'maintenance_approvals.progress')
+            ->orderBy('work_orders.created_at', 'desc')
             ->paginate($this->perPage);
 
-        return view('livewire.monitoring-spk', [
-            'workOrders' => $workOrders,
-        ]);
+        return view('livewire.monitoring-spk', compact('workOrders'));
     }
 }

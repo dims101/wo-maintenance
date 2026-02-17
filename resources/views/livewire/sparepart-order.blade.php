@@ -60,6 +60,7 @@
                                     <th>Detail</th>
                                     <th>Status</th>
                                     <th>Notification Number</th>
+                                    <th>Close GR</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -78,27 +79,36 @@
                                             </button>
                                         </td>
                                         <td>
-                                            @php
-                                                $statusClass = match ($workOrder->status) {
-                                                    'pending' => 'badge-warning',
-                                                    'approved' => 'badge-success',
-                                                    'rejected' => 'badge-danger',
-                                                    'in_progress' => 'badge-info',
-                                                    'completed' => 'badge-primary',
-                                                    default => 'badge-secondary',
-                                                };
-                                            @endphp
-                                            <span
-                                                class="badge {{ $statusClass }}">{{ ucfirst($workOrder->status ?? 'Unknown') }}</span>
+                                            @if ($workOrder->is_gr_closed)
+                                                <span class="badge badge-success">
+                                                    GR Closed
+                                                </span>
+                                            @else
+                                                <span class="badge badge-warning">
+                                                    GR Open
+                                                </span>
+                                            @endif
                                         </td>
                                         <td>
                                             <span
                                                 class="font-weight-bold">{{ $workOrder->notification_number ?? '-' }}</span>
                                         </td>
+                                        <td>
+                                            @if ($workOrder->is_gr_closed)
+                                                <span class="btn btn-link btn-success btn-lg">
+                                                    <i class="fas fa-check"></i>
+                                                </span>
+                                            @else
+                                                <button type="button" class="btn btn-success btn-sm"
+                                                    wire:click="confirmCloseGr({{ $workOrder->id }})" title="Close GR">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center">
+                                        <td colspan="5" class="text-center">
                                             <div class="py-4">
                                                 <i class="fas fa-search fa-2x text-muted mb-3"></i>
                                                 <p class="text-muted">No sparepart orders found</p>
@@ -430,6 +440,38 @@
                     }
                 });
             });
+
+            // Confirm Close GR
+            Livewire.on('confirmCloseGr', (data) => {
+                const woId = data[0].woId;
+                const notifNumber = data[0].notifNumber;
+                swal({
+                    title: "Close GR?",
+                    text: `Are you sure you want to close GR for Work Order "${notifNumber}"? This action cannot be undone.`,
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Close GR",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.closeGr(woId);
+                    }
+                });
+            });
         });
 
         document.addEventListener('livewire:navigated', function() {
@@ -480,6 +522,38 @@
                 }).then((result) => {
                     if (result) {
                         @this.submitSparepartOrder();
+                    }
+                });
+            });
+
+            // Confirm Close GR
+            Livewire.on('confirmCloseGr', (data) => {
+                const woId = data[0].woId;
+                const notifNumber = data[0].notifNumber;
+                swal({
+                    title: "Close GR?",
+                    text: `Are you sure you want to close GR for Work Order "${notifNumber}"? This action cannot be undone.`,
+                    icon: "warning",
+                    buttons: {
+                        cancel: {
+                            text: "Cancel",
+                            value: false,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill",
+                        },
+                        confirm: {
+                            text: "Yes, Close GR",
+                            value: true,
+                            visible: true,
+                            closeModal: true,
+                            className: "btn btn-pill btn-success",
+                        }
+                    },
+                    dangerMode: true,
+                }).then((result) => {
+                    if (result) {
+                        @this.closeGr(woId);
                     }
                 });
             });

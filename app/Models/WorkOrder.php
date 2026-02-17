@@ -29,6 +29,7 @@ class WorkOrder extends Model
         'spv_approve_reason',
         'is_sparepart_complete',
         'revision_note',
+        'is_gr_closed',
     ];
 
     protected function casts(): array
@@ -39,6 +40,7 @@ class WorkOrder extends Model
             'is_breakdown' => 'boolean',
             'is_spv_rejected' => 'boolean',
             'is_sparepart_complete' => 'boolean',
+            'is_gr_closed' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',

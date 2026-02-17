@@ -36,7 +36,7 @@ class SendGeneralMail extends Mailable
     }
 
     /**
-     * Bangun pesan email.
+     * Bangun pesan email. !!IMPORTANT => File generalMail jangan sampai ada indentasi kalau pakai vscode save nya pakai CTRL + K + CTRL + SHIFT + S
      */
     public function build()
     {

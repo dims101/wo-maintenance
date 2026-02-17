@@ -49,20 +49,20 @@
                     </a>
                 </li>
                 @if (auth()->user()->dept_id != 4)
-                    <li class="nav-item {{ request()->routeIs('work-order.create') ? 'active' : '' }}">
-                        <a href="{{ route('work-order.create') }}" wire:navigate>
-                            <i class="fas fa-plus-circle"></i>
-                            <p>Create SPK</p>
-                        </a>
-                    </li>
-                    @if (in_array(auth()->user()->role_id, [2, 3]))
-                        <li class="nav-item {{ request()->routeIs('work-order') ? 'active' : '' }}">
-                            <a href="{{ route('work-order') }}" wire:navigate>
-                                <i class="fas fa-desktop"></i>
-                                <p>Monitoring SPK</p>
+                    @if ((auth()->user()->dept_id == 1 && auth()->user()->role_id == 3) || auth()->user()->dept_id != 1)
+                        <li class="nav-item {{ request()->routeIs('work-order.create') ? 'active' : '' }}">
+                            <a href="{{ route('work-order.create') }}" wire:navigate>
+                                <i class="fas fa-plus-circle"></i>
+                                <p>Create SPK</p>
                             </a>
                         </li>
                     @endif
+                    <li class="nav-item {{ request()->routeIs('work-order') ? 'active' : '' }}">
+                        <a href="{{ route('work-order') }}" wire:navigate>
+                            <i class="fas fa-desktop"></i>
+                            <p>Monitoring SPK</p>
+                        </a>
+                    </li>
                     @if (!in_array(auth()->user()->role_id, [4, 5]))
                         <li class="nav-item {{ request()->routeIs('work-order.spv-approval') ? 'active' : '' }}">
                             <a href="{{ route('work-order.spv-approval') }}" wire:navigate>
@@ -71,7 +71,7 @@
                             </a>
                         </li>
                     @endif
-                    @if (auth()->user()->dept_id == 1 && in_array(auth()->user()->role_id, [4, 5]))
+                    @if (auth()->user()->dept_id == 1)
                         <li class="nav-item {{ request()->routeIs('work-order.assigned') ? 'active' : '' }}">
                             <a href="{{ route('work-order.assigned') }}" wire:navigate>
                                 <i class="fas fa-tasks"></i>
@@ -79,7 +79,7 @@
                             </a>
                         </li>
                     @endif
-                    @if (in_array(auth()->user()->role_id, [2, 3, 4]) && auth()->user()->dept_id == 1)
+                    @if (in_array(auth()->user()->role_id, [2, 3]) && auth()->user()->dept_id == 1)
                         <li class="nav-item {{ request()->routeIs('register.team') ? 'active' : '' }}">
                             <a href="{{ route('register.team') }}" wire:navigate>
                                 <i class="fas fa-users"></i>
@@ -87,7 +87,7 @@
                             </a>
                         </li>
                     @endif
-                    @if (auth()->user()->dept_id == 1)
+                    @if (in_array(auth()->user()->role_id, [2, 3]) && auth()->user()->dept_id == 1)
                         <li class="nav-item {{ request()->routeIs('pm') ? 'active' : '' }}">
                             <a href="{{ route('pm') }}" wire:navigate>
                                 <i class="fas fa-wrench"></i>
@@ -96,6 +96,12 @@
                         </li>
                     @endif
                 @else
+                    <li class="nav-item {{ request()->routeIs('work-order') ? 'active' : '' }}">
+                        <a href="{{ route('work-order') }}" wire:navigate>
+                            <i class="fas fa-desktop"></i>
+                            <p>Monitoring SPK</p>
+                        </a>
+                    </li>
                     <li class="nav-item {{ request()->routeIs('sparepart.order') ? 'active' : '' }}">
                         <a href="{{ route('sparepart.order') }}" wire:navigate>
                             <i class="fas fa-cogs"></i>

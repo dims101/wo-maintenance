@@ -81,62 +81,62 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                @switch($workOrder->status)
-                                                    @case('Waiting for SPV Approval')
-                                                        <span
-                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
+                                                @if (auth()->user()->dept_id == 4)
+                                                    @if ($workOrder->is_gr_closed)
+                                                        <span class="badge badge-success">
+                                                            GR Closed
+                                                        </span>
+                                                    @else
+                                                        <span class="badge badge-warning">
+                                                            GR Open
+                                                        </span>
+                                                    @endif
+                                                @else
+                                                    @switch($workOrder->status)
+                                                        @case('Waiting for SPV Approval')
+                                                        @case('Requested to change planner group')
 
-                                                    @case('Requested to change planner group')
-                                                        <span
-                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
+                                                        @case('Waiting for Maintenance Approval')
+                                                            <span class="badge badge-warning">
+                                                                {{ $workOrder->status ?? 'Not Set' }}
+                                                            </span>
+                                                        @break
 
-                                                    @case('Planned')
-                                                        <span
-                                                            class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
+                                                        @case('Planned')
+                                                        @case('Close')
+                                                            <span class="badge badge-success">
+                                                                {{ $workOrder->status ?? 'Not Set' }}
+                                                            </span>
+                                                        @break
 
-                                                    @case('Waiting for Maintenance Approval')
-                                                        <span
-                                                            class="badge badge-warning">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
+                                                        @case('Rejected by Maintenance')
+                                                        @case('Rejected')
+                                                            <span class="badge badge-danger">
+                                                                {{ $workOrder->status ?? 'Not Set' }}
+                                                            </span>
+                                                        @break
 
-                                                    @case('Rejected by Maintenance')
-                                                        <span
-                                                            class="badge badge-danger">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
+                                                        @case('Received by Maintenance')
+                                                        @case('Requested to be closed')
+                                                            <span class="badge badge-info">
+                                                                {{ $workOrder->status ?? 'Not Set' }}
+                                                            </span>
+                                                        @break
 
-                                                    @case('Received by Maintenance')
-                                                        <span
-                                                            class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
+                                                        @case('Need Revision')
+                                                            <span class="badge badge-primary">
+                                                                {{ $workOrder->status ?? 'Not Set' }}
+                                                            </span>
+                                                        @break
 
-                                                    @case('Requested to be closed')
-                                                        <span
-                                                            class="badge badge-info">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Need Revision')
-                                                        <span
-                                                            class="badge badge-primary">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Close')
-                                                        <span
-                                                            class="badge badge-success">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @case('Rejected')
-                                                        <span
-                                                            class="badge badge-danger">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                    @break
-
-                                                    @default
-                                                        <span
-                                                            class="badge badge-secondary">{{ $workOrder->status ?? 'Not Set' }}</span>
-                                                @endswitch
+                                                        @default
+                                                            <span class="badge badge-secondary">
+                                                                {{ $workOrder->status ?? 'Not Set' }}
+                                                            </span>
+                                                    @endswitch
+                                                @endif
                                             </td>
+
                                             <td class="text-center">
                                                 <div class="progress">
                                                     <div class="progress-bar progress-bar-striped progress-bar-animated"

@@ -133,9 +133,7 @@ class PreventiveMaintenance extends Component
                     $manhourToday = 0;
                 }
 
-                $hasActiveAssignment = $user->hasActiveAssignment();
-
-                $is_available = $manhourToday < 420 && ! $hasActiveAssignment;
+                $is_available = $manhourToday < 420;
 
                 return [
                     'id' => $user->id,
@@ -143,9 +141,7 @@ class PreventiveMaintenance extends Component
                     'nup' => $user->nup ?? '-',
                     'manhour_today' => $manhourToday,
                     'is_available' => $is_available,
-                    'reason' => $manhourToday >= 420
-                        ? 'Manhour limit reached ('.$manhourToday.' min)'
-                        : ($hasActiveAssignment ? 'Has active assignment' : ''),
+                    'reason' => 'Manhour limit reached ('.$manhourToday.' min)',
                 ];
             })
                 ->filter(function ($user) {
@@ -272,11 +268,6 @@ class PreventiveMaintenance extends Component
                 if ($user->getTotalManhourToday() >= 420) {
                     throw new \Exception($user->name.' has reached manhour limit.');
                 }
-
-                // Check active assignment
-                if ($user->hasActiveAssignment()) {
-                    throw new \Exception($user->name.' already has an active assignment.');
-                }
             }
 
             // Assign PIC
@@ -319,7 +310,7 @@ class PreventiveMaintenance extends Component
     public function canAssignTeam()
     {
         return $this->selectedPm &&
-               in_array($this->selectedPm->user_status, ['RELEASED', null]) &&
+               in_array($this->selectedPm->user_status, ['PLAN', null]) &&
                ! TeamAssignment::where('pm_id', $this->selectedPmId)->exists();
     }
 
@@ -473,7 +464,7 @@ class PreventiveMaintenance extends Component
             'ASSIGNED' => 'badge-info',
             'ON PROGRESS' => 'badge-primary',
             'REQUESTED TO BE CLOSED' => 'badge-warning',
-            'RELEASED' => 'badge-secondary',
+            'PLAN' => 'badge-secondary',
             default => 'badge-secondary',
         };
     }

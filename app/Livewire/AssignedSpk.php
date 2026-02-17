@@ -53,6 +53,8 @@ class AssignedSpk extends Component
 
     public $editingTaskName = '';
 
+    public $tempActivityStates = []; // Track temporary checkbox states
+
     public $sparepartItems = [];
 
     public $users = [];
@@ -164,11 +166,15 @@ class AssignedSpk extends Component
 
     public function hasActiveAssignment()
     {
-        // Cek apakah user punya assignment di WO yang belum closed
-        return TeamAssignment::where('user_id', Auth::user()->id)
-            ->whereHas('approval.workOrder', function ($q) {
-                $q->whereNotIn('status', ['Closed', 'Rejected']);
+        $user = Auth::user();
+
+        return TeamAssignment::where('user_id', $user->id)
+            ->where('is_active', true) // 🔥 tambahkan ini
+            ->whereHas('approval.workOrder', function ($q) use ($user) {
+                $q->whereNotIn('status', ['Closed', 'Rejected'])
+                    ->where('planner_group_id', $user->planner_group_id);
             })
+            ->orWhereHas('preventiveMaintenance')
             ->exists();
     }
 
@@ -433,8 +439,12 @@ class AssignedSpk extends Component
             $approval = MaintenanceApproval::where('wo_id', $this->selectedWorkOrderId)->first();
             if ($approval) {
                 $this->activityLists = ActivityList::where('approval_id', $approval->id)->get()->toArray();
-            } else {
-                $this->activityLists = [];
+
+                // ✅ Initialize temp states from database
+                $this->tempActivityStates = [];
+                foreach ($this->activityLists as $task) {
+                    $this->tempActivityStates[$task['id']] = $task['is_done'];
+                }
             }
         }
     }
@@ -461,15 +471,6 @@ class AssignedSpk extends Component
 
         $this->newTask = '';
         $this->loadActivityLists();
-    }
-
-    public function toggleTask($taskId)
-    {
-        $task = ActivityList::find($taskId);
-        if ($task) {
-            $task->update(['is_done' => ! $task->is_done]);
-            $this->loadActivityLists();
-        }
     }
 
     public function editTask($taskId)
@@ -514,29 +515,49 @@ class AssignedSpk extends Component
             return 0.0;
         }
 
-        $completedTasks = array_filter($this->activityLists, function ($task) {
-            return $task['is_done'] == true;
-        });
+        // ✅ Hitung dari temp states, bukan dari database
+        $completedCount = 0;
+        foreach ($this->activityLists as $task) {
+            if (isset($this->tempActivityStates[$task['id']]) && $this->tempActivityStates[$task['id']]) {
+                $completedCount++;
+            }
+        }
 
-        return round((count($completedTasks) / count($this->activityLists)) * 100, 1);
+        return round(($completedCount / count($this->activityLists)) * 100, 1);
     }
 
     public function updateProgress()
     {
-        $approval = MaintenanceApproval::where('wo_id', $this->selectedWorkOrderId)->first();
-        if (! $approval) {
-            session()->flash('error', 'Maintenance approval not found.');
+        try {
+            DB::beginTransaction();
 
-            return;
+            // ✅ Save semua perubahan ke database
+            foreach ($this->tempActivityStates as $taskId => $isDone) {
+                $task = ActivityList::find($taskId);
+                if ($task) {
+                    $task->update(['is_done' => $isDone]);
+                }
+            }
+
+            // Update progress di approval
+            $approval = MaintenanceApproval::where('wo_id', $this->selectedWorkOrderId)->first();
+            if ($approval) {
+                $progress = $this->calculateProgress();
+                $approval->update(['progress' => $progress]);
+            }
+
+            DB::commit();
+
+            // ✅ Reload activity lists untuk sync dengan database
+            $this->loadActivityLists();
+
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Progress updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to update progress: '.$e->getMessage());
         }
-
-        $progress = $this->calculateProgress();
-        $approval->update([
-            'progress' => $progress,
-        ]);
-
-        $this->dispatch('closeAllModals');
-        session()->flash('message', 'Progress updated successfully.');
     }
 
     public function confirmProgress()
@@ -549,6 +570,14 @@ class AssignedSpk extends Component
         $this->newTask = '';
         $this->editingTaskId = null;
         $this->editingTaskName = '';
+
+        // ✅ TAMBAHKAN - Reset temp states ke data database
+        if (! empty($this->activityLists)) {
+            $this->tempActivityStates = [];
+            foreach ($this->activityLists as $task) {
+                $this->tempActivityStates[$task['id']] = $task['is_done'];
+            }
+        }
     }
 
     public function resetCloseModal()
@@ -614,6 +643,7 @@ class AssignedSpk extends Component
         $this->isSparepartReserved = null;
         $this->isBeingWorked = null;
         $this->reason = '';
+        $this->tempActivityStates = [];
     }
 
     // ==================== PM DETAIL MODAL ====================
@@ -644,6 +674,7 @@ class AssignedSpk extends Component
         $this->newTask = '';
         $this->editingTaskId = null;
         $this->editingTaskName = '';
+        $this->tempActivityStates = []; // ✅ TAMBAHKAN - Reset temp states
     }
 
     // ==================== PM ACTIVITY LIST ====================
@@ -652,6 +683,12 @@ class AssignedSpk extends Component
     {
         if ($this->selectedPmId) {
             $this->activityLists = ActivityList::where('pm_id', $this->selectedPmId)->get()->toArray();
+
+            // ✅ Initialize temp states from database
+            $this->tempActivityStates = [];
+            foreach ($this->activityLists as $task) {
+                $this->tempActivityStates[$task['id']] = $task['is_done'];
+            }
         }
     }
 
@@ -669,15 +706,6 @@ class AssignedSpk extends Component
 
         $this->newTask = '';
         $this->loadActivityListsForPm();
-    }
-
-    public function toggleTaskPm($taskId)
-    {
-        $task = ActivityList::find($taskId);
-        if ($task) {
-            $task->update(['is_done' => ! $task->is_done]);
-            $this->loadActivityListsForPm();
-        }
     }
 
     public function editTaskPm($taskId)
@@ -722,11 +750,62 @@ class AssignedSpk extends Component
             return 0.0;
         }
 
-        $completedTasks = array_filter($this->activityLists, function ($task) {
-            return $task['is_done'] == true;
-        });
+        // ✅ Hitung dari temp states, bukan dari database
+        $completedCount = 0;
+        foreach ($this->activityLists as $task) {
+            if (isset($this->tempActivityStates[$task['id']]) && $this->tempActivityStates[$task['id']]) {
+                $completedCount++;
+            }
+        }
 
-        return round((count($completedTasks) / count($this->activityLists)) * 100, 1);
+        return round(($completedCount / count($this->activityLists)) * 100, 1);
+    }
+
+    public function updateProgressPm()
+    {
+        try {
+            DB::beginTransaction();
+
+            // ✅ Save semua perubahan ke database
+            foreach ($this->tempActivityStates as $taskId => $isDone) {
+                $task = ActivityList::find($taskId);
+                if ($task) {
+                    $task->update(['is_done' => $isDone]);
+                }
+            }
+
+            DB::commit();
+
+            // ✅ Reload activity lists untuk sync dengan database
+            $this->loadActivityListsForPm();
+
+            $this->dispatch('closeAllModals');
+            session()->flash('message', 'Progress updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Failed to update progress: '.$e->getMessage());
+        }
+    }
+
+    public function confirmProgressPm()
+    {
+        $this->dispatch('confirmProgressPm');
+    }
+
+    public function resetProgressModalPm()
+    {
+        $this->newTask = '';
+        $this->editingTaskId = null;
+        $this->editingTaskName = '';
+
+        // ✅ Reset temp states ke data database
+        if (! empty($this->activityLists)) {
+            $this->tempActivityStates = [];
+            foreach ($this->activityLists as $task) {
+                $this->tempActivityStates[$task['id']] = $task['is_done'];
+            }
+        }
     }
 
     // ==================== PM SPAREPART ====================
@@ -1075,6 +1154,7 @@ class AssignedSpk extends Component
         // ==================== WORK ORDERS QUERY ====================
         $woQuery = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user'])
             ->where('is_spv_rejected', 'false')
+            ->where('planner_group_id', Auth::user()->planner_group_id)
             ->whereIn('status', ['Planned', 'Need Revision', 'ON PROGRESS', 'Requested to be closed'])
             ->whereHas('maintenanceApproval.teamAssignments', function ($q) use ($userId) {
                 $q->where('user_id', $userId);

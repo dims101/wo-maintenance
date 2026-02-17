@@ -4,7 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SparepartList;
 use App\Models\WorkOrder;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -193,10 +193,47 @@ class SparepartOrder extends Component
         $this->dispatch('confirmSubmitOrder');
     }
 
+    public function confirmCloseGr($woId)
+    {
+        $workOrder = WorkOrder::find($woId);
+
+        if ($workOrder) {
+            $this->dispatch('confirmCloseGr', [
+                'woId' => $woId,
+                'notifNumber' => $workOrder->notification_number ?? '-',
+            ]);
+        }
+    }
+
+    public function closeGr($woId)
+    {
+        try {
+            $workOrder = WorkOrder::find($woId);
+
+            if (! $workOrder) {
+                session()->flash('error', 'Work Order not found.');
+
+                return;
+            }
+
+            if ($workOrder->is_gr_closed) {
+                session()->flash('error', 'GR is already closed for this Work Order.');
+
+                return;
+            }
+
+            $workOrder->update(['is_gr_closed' => true]);
+
+            session()->flash('message', 'GR closed successfully for Work Order '.($workOrder->notification_number ?? $woId).'.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'An error occurred: '.$e->getMessage());
+        }
+    }
+
     public function submitSparepartOrder()
     {
         try {
-            \DB::beginTransaction();
+            DB::beginTransaction();
 
             // Ambil semua sparepart list untuk WO ini
             $sparepartLists = SparepartList::where('wo_id', $this->selectedWorkOrder->id)
@@ -221,20 +258,20 @@ class SparepartOrder extends Component
                         // Update status menjadi completed
                         $sparepartList->update(['is_completed' => true]);
                     } else {
-                        \DB::rollBack();
+                        DB::rollBack();
                         session()->flash('error', 'Insufficient stock for '.$sparepart->name.'. Available: '.$sparepart->stock);
 
                         return;
                     }
                 } else {
-                    \DB::rollBack();
+                    DB::rollBack();
                     session()->flash('error', 'Sparepart with barcode '.$sparepartList->barcode.' not found.');
 
                     return;
                 }
             }
 
-            \DB::commit();
+            DB::commit();
 
             $this->closeModal();
             session()->flash('message', 'Sparepart order submitted successfully. Stock updated.');

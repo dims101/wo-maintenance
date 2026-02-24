@@ -16,6 +16,11 @@ class TeamAssignment extends Model
         'is_pic',
         'pm_id',
         'is_active',
+        'start_date',
+        'finish_date',
+        'duration',
+        'week_number',
+        'year',
     ];
 
     protected function casts(): array
@@ -26,6 +31,11 @@ class TeamAssignment extends Model
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
+            'start_date' => 'date',
+            'finish_date' => 'date',
+            'duration' => 'integer',
+            'week_number' => 'integer',
+            'year' => 'integer',
         ];
     }
 

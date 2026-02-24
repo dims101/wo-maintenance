@@ -43,6 +43,7 @@
                                 <span class="ml-2">entries</span>
                             </div>
                         </div>
+
                         <!-- Search Box -->
                         <div class="col-md-6">
                             <div class="d-flex justify-content-end">
@@ -402,7 +403,9 @@
                                     <select class="custom-select" wire:model.live="selectedPic">
                                         <option value="">Select PIC</option>
                                         @foreach ($users as $user)
-                                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                            <option value="{{ $user['id'] }}">
+                                                {{ $user['name'] }} ({{ $user['hours_left'] }} hours left)
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -425,20 +428,20 @@
                                                 @if ($member && $member != $selectedPic)
                                                     @php $current = $users->firstWhere('id', $member); @endphp
                                                     @if ($current)
-                                                        <option value="{{ $current->id }}">{{ $current->name }}
+                                                        <option value="{{ $current['id'] }}">{{ $current['name'] }}
                                                         </option>
                                                     @endif
                                                 @endif
                                                 {{-- Render user yang eligible --}}
                                                 @foreach ($users as $user)
                                                     @php
-                                                        // Cek apakah user sudah ada di tim (selain slot ini sendiri)
                                                         $alreadyChosen = collect($teamMembers)
-                                                            ->except($index) // abaikan slot ini sendiri
-                                                            ->contains($user->id);
+                                                            ->except($index)
+                                                            ->contains($user['id']);
                                                     @endphp
-                                                    @if ($user->id != $selectedPic && !$alreadyChosen)
-                                                        <option value="{{ $user->id }}">{{ $user->name }}
+                                                    @if ($user['id'] != $selectedPic && !$alreadyChosen)
+                                                        <option value="{{ $user['id'] }}">
+                                                            {{ $user['name'] }} ({{ $user['hours_left'] }} hours left)
                                                         </option>
                                                     @endif
                                                 @endforeach
@@ -516,6 +519,20 @@
                                                     class="text-danger">*</span></label>
                                             <input type="date" class="form-control" wire:model="finishDateTime"
                                                 {{ $isPgComplete == true ? 'readonly' : '' }}>
+                                        </div>
+                                    </div>
+                                    <!-- Duration -->
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label class="strong">Duration (Hours) <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="number" class="form-control"
+                                                wire:model.live.debounce.500ms="duration"
+                                                placeholder="Enter duration in hours" min="1" step="1"
+                                                {{ $isPgComplete == true ? 'readonly' : '' }}>
+                                            <small class="text-muted">
+                                                Maximum 35 hours per week per team member
+                                            </small>
                                         </div>
                                     </div>
                                 </div>
@@ -646,6 +663,16 @@
             // Open new tab for team creation
             Livewire.on('openNewTab', (url) => {
                 window.open(url, '_blank');
+            });
+
+            Livewire.on('showAlert', (data) => {
+                data = data[0];
+                swal({
+                    title: data.title,
+                    text: data.message,
+                    icon: data.icon,
+                    button: "OK",
+                });
             });
 
             // Confirm approve with SweetAlert
@@ -997,6 +1024,16 @@
 
             Livewire.on('openNewTab', (url) => {
                 window.open(url, '_blank');
+            });
+
+            Livewire.on('showAlert', (data) => {
+                data = data[0];
+                swal({
+                    title: data.title,
+                    text: data.message,
+                    icon: data.icon,
+                    button: "OK",
+                });
             });
 
             Livewire.on('confirmApprove', () => {

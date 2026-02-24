@@ -94,4 +94,9 @@ class User extends Authenticatable
             ->whereDate('date', today())
             ->sum('actual_time');
     }
+
+    public function teamAssignments()
+    {
+        return $this->hasMany(TeamAssignment::class, 'user_id');
+    }
 }

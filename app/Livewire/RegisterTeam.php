@@ -2,9 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\Department;
 use App\Models\PlannerGroup;
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
@@ -43,6 +41,10 @@ class RegisterTeam extends Component
 
     public $canEditDelete = false;
 
+    public $selectedWeek = 'current'; // 'current', 'week_1', 'week_2', 'week_3', 'week_4'
+
+    public $weekOptions = [];
+
     public function mount()
     {
         $this->authorize('access-by-role-dept', ['2,3,4', '1']);
@@ -51,6 +53,60 @@ class RegisterTeam extends Component
         // Check if current user can edit/delete (role 1 or 2)
         $currentUser = Auth::user();
         $this->canEditDelete = $currentUser && in_array($currentUser->role_id, [1, 2]);
+        $this->loadWeekOptions();
+    }
+
+    /**
+     * Load 5 weeks options (current + 4 weeks ago)
+     */
+    private function loadWeekOptions()
+    {
+        $this->weekOptions = [];
+        $now = \Carbon\Carbon::now('Asia/Jakarta');
+
+        for ($i = 0; $i < 5; $i++) {
+            $weekStart = $now->copy()->subWeeks($i)->startOfWeek(\Carbon\Carbon::MONDAY);
+            $weekEnd = $weekStart->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+
+            $weekNumber = $weekStart->week();
+            $year = $weekStart->year;
+
+            $key = $i === 0 ? 'current' : 'week_'.$i;
+
+            $this->weekOptions[$key] = [
+                'label' => 'Week '.$weekNumber.' ('.$weekStart->format('d M').' - '.$weekEnd->format('d M').')',
+                'week_number' => $weekNumber,
+                'year' => $year,
+                'start_date' => $weekStart->toDateString(),
+                'end_date' => $weekEnd->toDateString(),
+            ];
+        }
+    }
+
+    public function updatedSelectedWeek()
+    {
+        // Refresh view with new filter
+    }
+
+    /**
+     * Get week_number dan year dari selected week
+     */
+    private function getSelectedWeekData()
+    {
+        if (isset($this->weekOptions[$this->selectedWeek])) {
+            return [
+                'week_number' => $this->weekOptions[$this->selectedWeek]['week_number'],
+                'year' => $this->weekOptions[$this->selectedWeek]['year'],
+            ];
+        }
+
+        // Fallback ke current week
+        $now = \Carbon\Carbon::now('Asia/Jakarta');
+
+        return [
+            'week_number' => $now->week(),
+            'year' => $now->year,
+        ];
     }
 
     public function rules()
@@ -336,34 +392,35 @@ class RegisterTeam extends Component
         $this->resetValidation();
     }
 
-    private function getWorkDate()
-    {
-        $now = now()->setTimezone(config('app.timezone'));
-
-        $hour = (int) $now->format('H');
-
-        // Jam 00:00 - 06:59 → masih dianggap tanggal kemarin
-        if ($hour < 7) {
-            return $now->copy()->subDay()->toDateString();
-        }
-
-        return $now->toDateString();
-    }
-
     public function render()
     {
-        $workDate = $this->getWorkDate();
+        $selectedWeekData = $this->getSelectedWeekData();
+        $weekNumber = $selectedWeekData['week_number'];
+        $year = $selectedWeekData['year'];
+
+        // Get team members dengan total duration dari team_assignments
+        $teamMembers = User::with(['teamAssignments' => function ($query) use ($weekNumber, $year) {
+            $query->where('week_number', $weekNumber)
+                ->where('year', $year)
+                ->whereNull('deleted_at');
+        }])
+            ->where('dept_id', 1)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($user) {
+                // Calculate total duration (WO + PM) untuk week ini
+                $totalDuration = $user->teamAssignments->sum('duration');
+
+                // Add computed properties
+                $user->week_duration = $totalDuration;
+                $user->hours_left = max(0, 35 - $totalDuration);
+                $user->utilization_percentage = $totalDuration > 0 ? round(($totalDuration / 35) * 100, 1) : 0;
+
+                return $user;
+            });
 
         return view('livewire.register-team', [
-            'teamMembers' => User::withSum(
-                ['actualManhours as today_manhours' => function ($query) use ($workDate) {
-                    $query->whereDate('date', $workDate);
-                }],
-                'actual_time'
-            )
-                ->where('dept_id', 1)
-                ->orderBy('created_at', 'desc')
-                ->get(),
+            'teamMembers' => $teamMembers,
         ]);
     }
 }

@@ -371,11 +371,6 @@
 
                                 <div class="form-group">
                                     <label class="strong">Task List</label>
-                                    <div class="alert alert-info" role="alert">
-                                        <i class="fas fa-info-circle"></i>
-                                        Tasks are managed by the assigned team in Assigned SPK page.
-                                    </div>
-
                                     @forelse ($activityLists as $task)
                                         <div class="d-flex align-items-center mb-2">
                                             <div class="custom-control custom-checkbox flex-grow-1">
@@ -443,7 +438,7 @@
                                         <option value="">Select PIC</option>
                                         @forelse ($users as $user)
                                             <option value="{{ $user['id'] }}">
-                                                {{ $user['name'] }} ({{ $user['nup'] }})
+                                                {{ $user['name'] }} ({{ $user['hours_left'] }} hours left)
                                             </option>
                                         @empty
                                             <option value="" disabled>No users available</option>
@@ -463,21 +458,21 @@
                                     @foreach ($teamMembers as $index => $member)
                                         <div class="input-group mb-2">
                                             <select class="custom-select"
-                                                wire:model="teamMembers.{{ $index }}"
-                                                wire:key="team-member-{{ $index }}"
-                                                @disabled($selectedPic == '')>
+                                                wire:model="teamMembers.{{ $index }}">
                                                 <option value="">Select Team Member {{ $index + 1 }}</option>
-
-                                                {{-- Render user yang eligible --}}
                                                 @foreach ($users as $user)
                                                     @php
-                                                        $alreadyChosen = collect($teamMembers)
-                                                            ->except($index)
-                                                            ->contains($user['id']);
+                                                        // Check if user already selected as PIC or in other team member slots
+                                                        $alreadyChosen =
+                                                            $selectedPic == $user['id'] ||
+                                                            collect($teamMembers)
+                                                                ->except($index)
+                                                                ->contains($user['id']);
                                                     @endphp
-                                                    @if ($user['id'] != $selectedPic && !$alreadyChosen)
+
+                                                    @if (!$alreadyChosen)
                                                         <option value="{{ $user['id'] }}">
-                                                            {{ $user['name'] }} ({{ $user['nup'] }})
+                                                            {{ $user['name'] }} ({{ $user['hours_left'] }} hours left)
                                                         </option>
                                                     @endif
                                                 @endforeach
@@ -502,10 +497,16 @@
                                             </div>
                                         </div>
                                     @endforeach
-
-                                    <small class="text-muted">
-                                        Select team members from available maintenance staff (max manhour: 420 min/day)
-                                    </small>
+                                </div>
+                                <!-- Duration -->
+                                <div class="form-group mt-3">
+                                    <label class="strong">Duration (Hours) <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control"
+                                        wire:model.live.debounce.500ms="duration"
+                                        placeholder="Enter duration in hours" min="1" step="1">
+                                    @error('duration')
+                                        <span class="text-danger">{{ $message }}</span>
+                                    @enderror
                                 </div>
 
                                 @if (count($users) == 0)
@@ -547,11 +548,6 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        <div class="alert alert-info" role="alert">
-                            <i class="fas fa-info-circle"></i>
-                            Select new date for this preventive maintenance. Date must not be in the past.
-                        </div>
-
                         <div class="form-group">
                             <label class="strong">Current Basic Start Date</label>
                             <input type="text" class="form-control"
@@ -568,11 +564,6 @@
                             @enderror
                         </div>
 
-                        <div class="alert alert-warning" role="alert">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <strong>Warning:</strong> This will update basic start date and change status to
-                            "RESCHEDULED".
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-pill" data-dismiss="modal">
@@ -639,6 +630,15 @@
                 $('.modal').modal('hide');
             });
 
+            Livewire.on('showAlert', (data) => {
+                data = data[0];
+                swal({
+                    title: data.title,
+                    text: data.message,
+                    icon: data.icon,
+                    button: "OK",
+                });
+            });
 
             // Confirm Reschedule
             Livewire.on('confirmReschedule', () => {
@@ -768,6 +768,16 @@
 
             Livewire.on('closeRescheduleModal', () => {
                 $('#rescheduleModal').modal('hide');
+            });
+
+            Livewire.on('showAlert', (data) => {
+                data = data[0];
+                swal({
+                    title: data.title,
+                    text: data.message,
+                    icon: data.icon,
+                    button: "OK",
+                });
             });
 
             Livewire.on('confirmReschedule', () => {

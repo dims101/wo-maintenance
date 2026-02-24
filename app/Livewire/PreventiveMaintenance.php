@@ -42,6 +42,8 @@ class PreventiveMaintenance extends Component
 
     public $teamMembers = [''];
 
+    public $duration = '';
+
     // reschedule
     public $rescheduleDate = '';
 
@@ -70,7 +72,7 @@ class PreventiveMaintenance extends Component
         $this->selectedPm = PreventiveMaintenanceModel::find($pmId);
 
         $this->loadActivityLists();
-        $this->loadAvailableUsers();  // ✅ TAMBAHKAN INI
+        $this->loadAvailableUsers();
         $this->dispatch('showDetailModal');
     }
 
@@ -79,9 +81,10 @@ class PreventiveMaintenance extends Component
         $this->selectedPmId = null;
         $this->selectedPm = null;
         $this->rescheduleDate = '';  // KEEP jika masih ada reschedule
-        $this->selectedPic = null;   // ✅ TAMBAHKAN
-        $this->teamMembers = [''];   // ✅ TAMBAHKAN
-        $this->showAssignModal = false;  // ✅ TAMBAHKAN
+        $this->selectedPic = null;
+        $this->teamMembers = [''];
+        $this->duration = '';
+        $this->showAssignModal = false;
         $this->resetActivityModal();
         // HAPUS: $this->resetSparepartModal();
     }
@@ -119,29 +122,20 @@ class PreventiveMaintenance extends Component
     public function loadAvailableUsers()
     {
         try {
-            // ✅ Terima 'active', 'Active', 'ACTIVE'
             $allUsers = User::where('dept_id', 1)
                 ->whereIn('role_id', [4, 5])
-                ->whereIn('status', ['active', 'Active', 'ACTIVE']) // ✅ Cover semua case
+                ->whereIn('status', ['active', 'Active', 'ACTIVE'])
                 ->get();
 
             $this->users = $allUsers->map(function ($user) {
-                try {
-                    $manhourToday = $user->getTotalManhourToday();
-                } catch (\Exception $e) {
-                    \Log::warning("Error getting manhour for user {$user->id}: ".$e->getMessage());
-                    $manhourToday = 0;
-                }
-
-                $is_available = $manhourToday < 420;
+                $hoursLeft = $this->calculateUserHoursLeft($user->id);
 
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
                     'nup' => $user->nup ?? '-',
-                    'manhour_today' => $manhourToday,
-                    'is_available' => $is_available,
-                    'reason' => 'Manhour limit reached ('.$manhourToday.' min)',
+                    'hours_left' => $hoursLeft,
+                    'is_available' => $hoursLeft > 0,
                 ];
             })
                 ->filter(function ($user) {
@@ -156,6 +150,78 @@ class PreventiveMaintenance extends Component
             \Log::error('Error loading users: '.$e->getMessage());
             $this->users = [];
             session()->flash('error', 'Error loading users: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Calculate hours left for user in specific week based on PM basic_start_date
+     * Gabung dari WO (approval_id) dan PM (pm_id)
+     */
+    private function calculateUserHoursLeft($userId)
+    {
+        $maxHoursPerWeek = 35;
+
+        // Get week number dari basic_start_date PM ini
+        if ($this->selectedPm && $this->selectedPm->basic_start_date) {
+            $startDate = \Carbon\Carbon::parse($this->selectedPm->basic_start_date, 'Asia/Jakarta');
+            $weekNumber = $startDate->week();
+            $year = $startDate->year;
+        } else {
+            // Fallback ke current week jika PM belum punya basic_start_date
+            $today = \Carbon\Carbon::now('Asia/Jakarta');
+            $weekNumber = $today->week();
+            $year = $today->year;
+        }
+
+        // Sum duration dari team_assignments untuk user ini di week ini
+        // Gabung WO (approval_id) dan PM (pm_id)
+        $totalHours = TeamAssignment::where('user_id', $userId)
+            ->where('week_number', $weekNumber)
+            ->where('year', $year)
+            ->whereNull('deleted_at')
+            ->sum('duration');
+
+        return max(0, $maxHoursPerWeek - $totalHours);
+    }
+
+    /**
+     * Real-time validation saat duration diinput
+     */
+    public function updatedDuration()
+    {
+        if (empty($this->duration) || $this->duration <= 0) {
+            return;
+        }
+
+        // Validate PIC
+        if ($this->selectedPic) {
+            $hoursLeft = $this->calculateUserHoursLeft($this->selectedPic);
+            if ($this->duration > $hoursLeft) {
+                $user = collect($this->users)->firstWhere('id', $this->selectedPic);
+                session()->flash('error', $user['name'].' only has '.$hoursLeft.' hours left this week.');
+                $this->dispatch('showAlert', [
+                    'title' => 'Warning!',
+                    'message' => $user['name'].' only has '.$hoursLeft.' hours left this week.',
+                    'icon' => 'warning',
+                ]);
+            }
+        }
+
+        // Validate Team Members
+        foreach ($this->teamMembers as $memberId) {
+            if (! empty($memberId) && $memberId != $this->selectedPic) {
+                $hoursLeft = $this->calculateUserHoursLeft($memberId);
+                if ($this->duration > $hoursLeft) {
+                    $user = collect($this->users)->firstWhere('id', $memberId);
+                    session()->flash('error', $user['name'].' only has '.$hoursLeft.' hours left this week.');
+                    $this->dispatch('showAlert', [
+                        'title' => 'Warning!',
+                        'message' => $user['name'].' only has '.$hoursLeft.' hours left this week.',
+                        'icon' => 'warning',
+                    ]);
+                    break;
+                }
+            }
         }
     }
 
@@ -183,6 +249,7 @@ class PreventiveMaintenance extends Component
     {
         $this->selectedPic = null;
         $this->teamMembers = [''];
+        $this->duration = '';
         $this->showAssignModal = false;
         $this->dispatch('closeAssignModal');
     }
@@ -249,24 +316,42 @@ class PreventiveMaintenance extends Component
                 throw new \Exception('Please select a PIC.');
             }
 
-            // Get valid team members (exclude empty values)
+            // Validate duration
+            if (empty($this->duration) || $this->duration <= 0) {
+                throw new \Exception('Please input duration in hours.');
+            }
+
+            // Get valid team members
             $validTeamMembers = array_filter($this->teamMembers);
 
             if (empty($validTeamMembers)) {
                 throw new \Exception('Please select at least one team member.');
             }
 
-            // Double check all users availability
-            $allUserIds = array_merge([$this->selectedPic], $validTeamMembers);
-            foreach ($allUserIds as $userId) {
-                $user = User::find($userId);
-                if (! $user) {
-                    throw new \Exception('User not found.');
-                }
+            // Calculate week number dari basic_start_date
+            if (! $pm->basic_start_date) {
+                throw new \Exception('PM must have a basic start date.');
+            }
 
-                // Check manhour limit
-                if ($user->getTotalManhourToday() >= 420) {
-                    throw new \Exception($user->name.' has reached manhour limit.');
+            $startDate = \Carbon\Carbon::parse($pm->basic_start_date, 'Asia/Jakarta');
+            $weekNumber = $startDate->week();
+            $year = $startDate->year;
+
+            // Validate ALL users (PIC + team members) hours
+            $allUserIds = array_merge([$this->selectedPic], $validTeamMembers);
+            $allUserIds = array_unique($allUserIds);
+
+            foreach ($allUserIds as $userId) {
+                $hoursLeft = $this->calculateUserHoursLeftForWeek($userId, $weekNumber, $year);
+
+                if ($this->duration > $hoursLeft) {
+                    $user = User::find($userId);
+                    throw new \Exception($user->name.' only has '.$hoursLeft.' hours left in week '.$weekNumber.'.');
+                    $this->dispatch('showAlert', [
+                        'title' => 'Warning!',
+                        'message' => $user['name'].' only has '.$hoursLeft.' hours left this week.',
+                        'icon' => 'warning',
+                    ]);
                 }
             }
 
@@ -275,22 +360,36 @@ class PreventiveMaintenance extends Component
                 'pm_id' => $this->selectedPmId,
                 'user_id' => $this->selectedPic,
                 'is_pic' => true,
+                'is_active' => true,
+                'start_date' => null,  // NULL untuk PM
+                'finish_date' => null, // NULL untuk PM
+                'duration' => $this->duration,
+                'week_number' => $weekNumber,
+                'year' => $year,
             ]);
 
             // Assign Team Members
             foreach ($validTeamMembers as $memberId) {
-                if ($memberId != $this->selectedPic) { // Pastikan tidak double assign PIC
+                if ($memberId != $this->selectedPic) {
                     TeamAssignment::create([
                         'pm_id' => $this->selectedPmId,
                         'user_id' => $memberId,
                         'is_pic' => false,
+                        'is_active' => true,
+                        'start_date' => null,  // NULL untuk PM
+                        'finish_date' => null, // NULL untuk PM
+                        'duration' => $this->duration,
+                        'week_number' => $weekNumber,
+                        'year' => $year,
                     ]);
                 }
             }
 
-            // Update PM status
+            // Update PM status dan actual_start_date
             $pm->update([
                 'user_status' => 'ASSIGNED',
+                'actual_start_date' => $startDate->toDateString(),
+                'actual_start_time' => $startDate->toTimeString(),
             ]);
 
             $this->selectedPm = $pm;
@@ -307,10 +406,26 @@ class PreventiveMaintenance extends Component
         }
     }
 
+    /**
+     * Calculate hours left untuk specific week
+     */
+    private function calculateUserHoursLeftForWeek($userId, $weekNumber, $year)
+    {
+        $maxHoursPerWeek = 35;
+
+        $totalHours = TeamAssignment::where('user_id', $userId)
+            ->where('week_number', $weekNumber)
+            ->where('year', $year)
+            ->whereNull('deleted_at')
+            ->sum('duration');
+
+        return max(0, $maxHoursPerWeek - $totalHours);
+    }
+
     public function canAssignTeam()
     {
         return $this->selectedPm &&
-               in_array($this->selectedPm->user_status, ['PLAN', null]) &&
+               ! in_array($this->selectedPm->user_status, ['COMPLETED', 'CLOSED']) &&
                ! TeamAssignment::where('pm_id', $this->selectedPmId)->exists();
     }
 

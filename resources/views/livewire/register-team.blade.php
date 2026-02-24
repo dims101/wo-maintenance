@@ -91,6 +91,22 @@
                         <small class="text-muted">All team members from Department Maintenance</small>
                     </div>
                     <div class="card-body">
+                        <!-- Filter Week -->
+                        {{-- <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="weekFilter" class="font-weight-bold">Filter Week</label>
+                                    <select id="weekFilter" class="form-control" wire:model.live="selectedWeek">
+                                        @foreach ($weekOptions as $key => $option)
+                                            <option value="{{ $key }}">{{ $option['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- Space for future search if needed -->
+                            </div>
+                        </div> --}}
                         <div class="table-responsive">
                             <table class="table table-borderless table-striped table-hover" id="teamMembersTable">
                                 <thead class="thead-light">
@@ -119,7 +135,8 @@
                                             <td>{{ $member->nup }}</td>
                                             <td>{{ $member->email }}</td>
                                             <td>
-                                                {{ $member->today_manhours ?? 0 }} minutes
+                                                <span class="font-weight-bold">{{ $member->week_duration }}/35</span>
+                                                hours
                                             </td>
                                             <td>{{ $member->plannerGroup->name ?? 'N/A' }}</td>
                                             <td>

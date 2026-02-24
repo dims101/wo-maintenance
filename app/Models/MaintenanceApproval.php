@@ -15,6 +15,7 @@ class MaintenanceApproval extends Model
         'mat_id',
         'start',
         'finish',
+        'total_duration',
         'progress',
         'is_closed',
         'is_rejected',
@@ -28,6 +29,7 @@ class MaintenanceApproval extends Model
         return [
             'start' => 'datetime',
             'finish' => 'datetime',
+            'total_duration' => 'integer',
             'is_closed' => 'boolean',
             'is_rejected' => 'boolean',
             'is_received' => 'boolean',

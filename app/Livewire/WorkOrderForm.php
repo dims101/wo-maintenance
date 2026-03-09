@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -22,13 +23,13 @@ class WorkOrderForm extends Component
     #[Title('Form Maintenance Notification')]
 
     // search text
-    public $plant_search = '';
+    // public $plant_search = '';
 
-    public $resource_search = '';
+    // public $resource_search = '';
 
-    public $func_search = '';
+    // public $func_search = '';
 
-    public $equipment_search = '';
+    // public $equipment_search = '';
 
     // selected ids
     public $plant_id = null;
@@ -68,16 +69,23 @@ class WorkOrderForm extends Component
     public $departments = [];
 
     // limits
-    public $perPage = 10;
+    public $perPage = 10000;
 
     // show dropdown flags
-    public $showPlantDropdown = false;
+    // public $showPlantDropdown = false;
 
-    public $showResourceDropdown = false;
+    // public $showResourceDropdown = false;
 
-    public $showFuncDropdown = false;
+    // public $showFuncDropdown = false;
+    public $equipment_search = '';
 
     public $showEquipmentDropdown = false;
+
+    public $plant_name = null;
+
+    public $resource_name = null;
+
+    public $func_loc_name = null;
 
     protected $rules = [
         'equipment_id' => 'required|integer',
@@ -88,7 +96,8 @@ class WorkOrderForm extends Component
         'req_dept_id' => 'required|integer',
         'req_user_id' => 'required|integer',
         'urgent_level' => 'required|string',
-        'notes' => 'required|string',
+        'work_desc' => 'required|string|min:5|max:500', // WAJIB
+        'notes' => 'nullable|string|max:1000',
     ];
 
     protected $messages = [
@@ -117,73 +126,80 @@ class WorkOrderForm extends Component
         'req_user_id.exists' => 'User yang dipilih tidak valid',
         'urgent_level.required' => 'Urgent Level wajib dipilih',
         'urgent_level.in' => 'Urgent Level tidak valid',
-        'notes.required' => 'Notes wajib diisi',
-        'notes.min' => 'Notes minimal 10 karakter',
+        'work_desc.required' => 'Work Description wajib di isi',
+        'work_desc.min' => 'Work Description minimal 5 karakter',
+        'work_desc.max' => 'Work Description maksimal 500 karakter',
         'notes.max' => 'Notes maksimal 1000 karakter',
     ];
 
+    // GANTI mount():
     public function mount()
     {
         $this->planner_groups = PlannerGroup::orderBy('name')->get();
         $this->departments = Department::where('id', '!=', 1)->orderBy('name')->get();
         $this->req_dept_id = Auth::user()->dept_id;
         $this->req_user_id = Auth::user()->id;
-
-        // Set default dates
         $this->notification_date = now()->format('Y-m-d\TH:i');
         $this->malfunction_start = now()->format('Y-m-d\TH:i');
     }
 
     // Updated methods for search
-    public function updatedPlantSearch()
-    {
-        $this->showPlantDropdown = ! empty(trim($this->plant_search));
-        if (empty(trim($this->plant_search))) {
-            $this->plant_id = null;
-            $this->resetDependentSelects();
-        }
-    }
+    // public function updatedPlantSearch()
+    // {
+    //     $this->showPlantDropdown = ! empty(trim($this->plant_search));
+    //     if (empty(trim($this->plant_search))) {
+    //         $this->plant_id = null;
+    //         $this->resetDependentSelects();
+    //     }
+    // }
 
-    public function updatedResourceSearch()
-    {
-        $this->showResourceDropdown = ! empty(trim($this->resource_search)) && $this->plant_id;
-        if (empty(trim($this->resource_search))) {
-            $this->resource_id = null;
-            $this->resetFuncAndEquipment();
-        }
-    }
+    // public function updatedResourceSearch()
+    // {
+    //     $this->showResourceDropdown = ! empty(trim($this->resource_search)) && $this->plant_id;
+    //     if (empty(trim($this->resource_search))) {
+    //         $this->resource_id = null;
+    //         $this->resetFuncAndEquipment();
+    //     }
+    // }
 
-    public function updatedFuncSearch()
-    {
-        $this->showFuncDropdown = ! empty(trim($this->func_search)) && $this->resource_id;
-        if (empty(trim($this->func_search))) {
-            $this->functional_location_id = null;
-            $this->resetEquipment();
-        }
-    }
+    // public function updatedFuncSearch()
+    // {
+    //     $this->showFuncDropdown = ! empty(trim($this->func_search)) && $this->resource_id;
+    //     if (empty(trim($this->func_search))) {
+    //         $this->functional_location_id = null;
+    //         $this->resetEquipment();
+    //     }
+    // }
 
     public function updatedEquipmentSearch()
     {
-        $this->showEquipmentDropdown = ! empty(trim($this->equipment_search)) && $this->functional_location_id;
+        $this->showEquipmentDropdown = true;
         if (empty(trim($this->equipment_search))) {
+            // jangan reset, biarkan dropdown tetap tampil dengan semua data
             $this->equipment_id = null;
+            $this->plant_id = null;
+            $this->plant_name = null;
+            $this->resource_id = null;
+            $this->resource_name = null;
+            $this->functional_location_id = null;
+            $this->func_loc_name = null;
         }
     }
 
-    public function updatedPlantId($value)
-    {
-        $this->resetDependentSelects();
-    }
+    // public function updatedPlantId($value)
+    // {
+    //     $this->resetDependentSelects();
+    // }
 
-    public function updatedResourceId($value)
-    {
-        $this->resetFuncAndEquipment();
-    }
+    // public function updatedResourceId($value)
+    // {
+    //     $this->resetFuncAndEquipment();
+    // }
 
-    public function updatedFunctionalLocationId($value)
-    {
-        $this->resetEquipment();
-    }
+    // public function updatedFunctionalLocationId($value)
+    // {
+    //     $this->resetEquipment();
+    // }
 
     public function updatedReqDeptId($value)
     {
@@ -192,79 +208,93 @@ class WorkOrderForm extends Component
     }
 
     // Fixed reset methods
-    private function resetDependentSelects()
-    {
-        $this->resource_id = null;
-        $this->resource_search = '';
-        $this->showResourceDropdown = false;
-        $this->resetFuncAndEquipment();
-    }
+    // private function resetDependentSelects()
+    // {
+    //     $this->resource_id = null;
+    //     $this->resource_search = '';
+    //     $this->showResourceDropdown = false;
+    //     $this->resetFuncAndEquipment();
+    // }
 
-    private function resetFuncAndEquipment()
-    {
-        $this->functional_location_id = null;
-        $this->func_search = '';
-        $this->showFuncDropdown = false;
-        $this->resetEquipment();
-    }
+    // private function resetFuncAndEquipment()
+    // {
+    //     $this->functional_location_id = null;
+    //     $this->func_search = '';
+    //     $this->showFuncDropdown = false;
+    //     $this->resetEquipment();
+    // }
 
-    private function resetEquipment()
+    public function resetEquipment()
     {
         $this->equipment_id = null;
         $this->equipment_search = '';
         $this->showEquipmentDropdown = false;
+        $this->plant_id = null;
+        $this->plant_name = null;
+        $this->resource_id = null;
+        $this->resource_name = null;
+        $this->functional_location_id = null;
+        $this->func_loc_name = null;
     }
 
     // Fixed computed properties
-    public function getPlantsProperty()
-    {
-        if (empty(trim($this->plant_search))) {
-            return collect();
-        }
+    // public function getPlantsProperty()
+    // {
+    //     if (empty(trim($this->plant_search))) {
+    //         return collect();
+    //     }
 
-        return Plant::where('name', 'ilike', "%{$this->plant_search}%")
-            ->orderBy('name')
-            ->limit($this->perPage)
-            ->get();
-    }
+    //     return Plant::where('name', 'ilike', "%{$this->plant_search}%")
+    //         ->orderBy('name')
+    //         ->limit($this->perPage)
+    //         ->get();
+    // }
 
-    public function getResourcesProperty()
-    {
-        if (! $this->plant_id || empty(trim($this->resource_search))) {
-            return collect();
-        }
+    // public function getResourcesProperty()
+    // {
+    //     if (! $this->plant_id || empty(trim($this->resource_search))) {
+    //         return collect();
+    //     }
 
-        return Resource::where('plant_id', $this->plant_id)
-            ->where('name', 'ilike', "%{$this->resource_search}%")
-            ->orderBy('name')
-            ->limit($this->perPage)
-            ->get();
-    }
+    //     return Resource::where('plant_id', $this->plant_id)
+    //         ->where('name', 'ilike', "%{$this->resource_search}%")
+    //         ->orderBy('name')
+    //         ->limit($this->perPage)
+    //         ->get();
+    // }
 
-    public function getFunctionalLocationsProperty()
-    {
-        if (! $this->resource_id || empty(trim($this->func_search))) {
-            return collect();
-        }
+    // public function getFunctionalLocationsProperty()
+    // {
+    //     if (! $this->resource_id || empty(trim($this->func_search))) {
+    //         return collect();
+    //     }
 
-        return FunctionalLocation::where('resources_id', $this->resource_id)
-            ->where('name', 'ilike', "%{$this->func_search}%")
-            ->orderBy('name')
-            ->limit($this->perPage)
-            ->get();
-    }
+    //     return FunctionalLocation::where('resources_id', $this->resource_id)
+    //         ->where('name', 'ilike', "%{$this->func_search}%")
+    //         ->orderBy('name')
+    //         ->limit($this->perPage)
+    //         ->get();
+    // }
 
     public function getEquipmentsProperty()
     {
-        if (! $this->functional_location_id || empty(trim($this->equipment_search))) {
-            return collect();
+        $search = trim($this->equipment_search);
+
+        $query = Equipment::query();
+
+        if (! empty($search)) {
+            $query->where('name', 'ilike', "%{$search}%");
         }
 
-        return Equipment::where('func_loc_id', $this->functional_location_id)
-            ->where('name', 'ilike', "%{$this->equipment_search}%")
-            ->orderBy('name')
-            ->limit($this->perPage)
-            ->get();
+        if ($this->functional_location_id) {
+            $query->where('func_loc_id', $this->functional_location_id);
+        } elseif ($this->resource_id) {
+            $query->whereHas('functionalLocation', function ($q) {
+                $q->where('resources_id', $this->resource_id);
+            });
+        }
+
+        return $query->orderBy('name')->limit($this->perPage)->get();
     }
 
     public function getRequestersProperty()
@@ -303,54 +333,66 @@ class WorkOrderForm extends Component
     }
 
     // Fixed select methods
-    public function selectPlant($id)
-    {
-        $plant = Plant::find($id);
-        if ($plant) {
-            $this->plant_id = $plant->id;
-            $this->plant_search = $plant->name;
-            $this->showPlantDropdown = false;
-            $this->resetDependentSelects();
-        }
-    }
+    // public function selectPlant($id)
+    // {
+    //     $plant = Plant::find($id);
+    //     if ($plant) {
+    //         $this->plant_id = $plant->id;
+    //         $this->plant_search = $plant->name;
+    //         $this->showPlantDropdown = false;
+    //         $this->resetDependentSelects();
+    //     }
+    // }
 
-    public function selectResource($id)
-    {
-        $resource = Resource::find($id);
-        if ($resource) {
-            $this->resource_id = $resource->id;
-            $this->resource_search = $resource->name;
-            $this->showResourceDropdown = false;
-            $this->resetFuncAndEquipment();
-        }
-    }
+    // public function selectResource($id)
+    // {
+    //     $resource = Resource::find($id);
+    //     if ($resource) {
+    //         $this->resource_id = $resource->id;
+    //         $this->resource_search = $resource->name;
+    //         $this->showResourceDropdown = false;
+    //         $this->resetFuncAndEquipment();
+    //     }
+    // }
 
-    public function selectFunctionalLocation($id)
-    {
-        $functionalLocation = FunctionalLocation::find($id);
-        if ($functionalLocation) {
-            $this->functional_location_id = $functionalLocation->id;
-            $this->func_search = $functionalLocation->name;
-            $this->showFuncDropdown = false;
-            $this->resetEquipment();
-        }
-    }
+    // public function selectFunctionalLocation($id)
+    // {
+    //     $functionalLocation = FunctionalLocation::find($id);
+    //     if ($functionalLocation) {
+    //         $this->functional_location_id = $functionalLocation->id;
+    //         $this->func_search = $functionalLocation->name;
+    //         $this->showFuncDropdown = false;
+    //         $this->resetEquipment();
+    //     }
+    // }
 
     public function selectEquipment($id)
     {
-        $equipment = Equipment::find($id);
+        $equipment = Equipment::with([
+            'functionalLocation.resource.plant',
+        ])->find($id);
+
         if ($equipment) {
             $this->equipment_id = $equipment->id;
             $this->equipment_search = $equipment->name;
             $this->showEquipmentDropdown = false;
+
+            // Auto-fill dari relasi
+            $funcLoc = $equipment->functionalLocation;
+            $resource = $funcLoc?->resource;
+            $plant = $resource?->plant;
+
+            $this->functional_location_id = $funcLoc?->id;
+            $this->func_loc_name = $funcLoc?->name;
+            $this->resource_id = $resource?->id;
+            $this->resource_name = $resource?->name;
+            $this->plant_id = $plant?->id;
+            $this->plant_name = $plant?->name;
         }
     }
 
     public function hideDropdowns()
     {
-        $this->showPlantDropdown = false;
-        $this->showResourceDropdown = false;
-        $this->showFuncDropdown = false;
         $this->showEquipmentDropdown = false;
     }
 
@@ -365,6 +407,8 @@ class WorkOrderForm extends Component
         $this->validate();
 
         try {
+
+            DB::beginTransaction();
             $workOrder = WorkOrder::create([
                 'notification_number' => $this->notification_number,
                 'work_desc' => $this->work_desc,
@@ -390,6 +434,7 @@ class WorkOrderForm extends Component
             $name = $department->spv->name;
             // update to general
             Mail::to($email)->send(new SpvUserApproval($name, route('work-order.spv-approval')));
+            DB::commit();
 
             $this->dispatch('show-success-alert', [
                 'title' => 'Submitted!',
@@ -405,12 +450,10 @@ class WorkOrderForm extends Component
         }
     }
 
+    // GANTI render():
     public function render()
     {
         return view('livewire.work-order-form', [
-            'plants' => $this->plants,
-            'resources' => $this->resources,
-            'functionalLocations' => $this->functionalLocations,
             'equipments' => $this->equipments,
             'requesters' => $this->requesters,
             'spv_email' => $this->spvEmail,

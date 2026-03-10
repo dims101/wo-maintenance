@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -31,6 +32,8 @@ class WorkOrder extends Model
         'revision_note',
         'is_gr_closed',
     ];
+
+    protected $appends = ['is_start_warning'];
 
     protected function casts(): array
     {
@@ -80,5 +83,31 @@ class WorkOrder extends Model
     public function actualManhours()
     {
         return $this->hasMany(ActualManhour::class, 'wo_id', 'id');
+    }
+
+    public function getStartDiffDaysAttribute()
+    {
+        if (! $this->maintenanceApproval || ! $this->maintenanceApproval->start) {
+            return null;
+        }
+
+        return Carbon::now()->diffInDays(
+            Carbon::parse($this->maintenanceApproval->start),
+            false
+        );
+    }
+
+    public function getIsStartWarningAttribute()
+    {
+        if (! $this->approval_start) {
+            return false;
+        }
+
+        $start = Carbon::parse($this->approval_start)->startOfDay();
+        $today = Carbon::now()->startOfDay();
+
+        $diff = $today->diffInDays($start, false);
+
+        return $diff >= 1 && $diff <= 3;
     }
 }

@@ -70,7 +70,7 @@
                             <tbody>
                                 @if ($workOrders && $workOrders->count() > 0)
                                     @foreach ($workOrders as $workOrder)
-                                        <tr>
+                                        <tr class="{{ $workOrder->is_start_warning ? 'table-danger' : '' }}">
                                             <td>
                                                 <div class="btn-group" role="group">
                                                     <button type="button" class="btn btn-link btn-lg btn-info"

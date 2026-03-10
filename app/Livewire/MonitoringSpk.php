@@ -508,7 +508,11 @@ class MonitoringSpk extends Component
         }
 
         $workOrders = $query
-            ->select('work_orders.*', 'maintenance_approvals.progress')
+            ->select(
+                'work_orders.*',
+                'maintenance_approvals.progress',
+                'maintenance_approvals.start as approval_start'
+            )
             ->orderBy('work_orders.created_at', 'desc')
             ->paginate($this->perPage);
 

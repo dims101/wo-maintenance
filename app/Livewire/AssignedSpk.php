@@ -63,12 +63,9 @@ class AssignedSpk extends Component
 
     public $isBeingWorked = null;
 
-    // PM Properties
     public $selectedPmId = null;
 
     public $selectedPm = null;
-
-    // public $preventiveMaintenances = [];
 
     public $pmPerPage = 10;
 
@@ -138,7 +135,6 @@ class AssignedSpk extends Component
         try {
             DB::beginTransaction();
 
-            // Double check user tidak punya assignment
             if ($this->hasActiveAssignment()) {
                 session()->flash('error', 'You already have an active assignment.');
                 DB::rollBack();
@@ -169,7 +165,7 @@ class AssignedSpk extends Component
         $user = Auth::user();
 
         return TeamAssignment::where('user_id', $user->id)
-            ->where('is_active', true) // 🔥 tambahkan ini
+            ->where('is_active', true)
             ->whereHas('approval.workOrder', function ($q) use ($user) {
                 $q->whereNotIn('status', ['Closed', 'Rejected'])
                     ->where('planner_group_id', $user->planner_group_id);
@@ -180,13 +176,11 @@ class AssignedSpk extends Component
 
     public function canShowAllWorkOrderButton()
     {
-        // Tombol muncul jika: tidak sedang start work DAN tidak punya assignment
         return ! $this->activeSessionUser && ! $this->hasActiveAssignment();
     }
 
     public function checkActiveSession()
     {
-        // Cek apakah user sedang punya session aktif di WO atau PM MANAPUN
         $this->activeSessionUser = ActualManhour::where('user_id', Auth::user()->id)
             ->whereNull('stop_job')
             ->first();
@@ -225,14 +219,11 @@ class AssignedSpk extends Component
 
     public function confirmStart($workOrderId)
     {
-        // Validasi user harus di-assign ke team
         if (! $this->isUserAssignedToTeam($workOrderId)) {
             session()->flash('error', 'You are not assigned to this work order team.');
 
             return;
         }
-
-        // Validasi user tidak boleh punya active session di WO manapun
         $activeSession = ActualManhour::where('user_id', Auth::user()->id)
             ->whereNull('stop_job')
             ->first();
@@ -257,7 +248,6 @@ class AssignedSpk extends Component
                 'user_id' => Auth::user()->id,
                 'wo_id' => $this->selectedWorkOrderId,
                 'start_job' => now(),
-                // shift dan date akan diset otomatis oleh mutator
             ]);
 
             DB::commit();
@@ -301,7 +291,6 @@ class AssignedSpk extends Component
 
             $session->update([
                 'stop_job' => now(),
-                // actual_time akan dihitung otomatis oleh mutator
             ]);
 
             DB::commit();
@@ -357,7 +346,6 @@ class AssignedSpk extends Component
 
     public function removeSparepartItem($index)
     {
-        // Cek apakah item sudah completed
         if (isset($this->sparepartItems[$index]['is_completed']) &&
             $this->sparepartItems[$index]['is_completed']) {
             session()->flash('error', 'Cannot remove completed sparepart.');
@@ -371,7 +359,6 @@ class AssignedSpk extends Component
 
     public function submitSparepart()
     {
-        // Validation - hanya validasi item yang belum completed
         $validItems = array_filter($this->sparepartItems, function ($item) {
             $isCompleted = isset($item['is_completed']) && $item['is_completed'];
 
@@ -384,13 +371,11 @@ class AssignedSpk extends Component
             return;
         }
 
-        // Dispatch confirmation instead of direct save
         $this->dispatch('confirmSparepartSubmit');
     }
 
     public function saveSparepartReservation()
     {
-        // Filter hanya item yang belum completed
         $validItems = array_filter($this->sparepartItems, function ($item) {
             $isCompleted = isset($item['is_completed']) && $item['is_completed'];
 
@@ -400,10 +385,9 @@ class AssignedSpk extends Component
         try {
             DB::beginTransaction();
 
-            // Create new sparepart lists (hanya yang baru, skip yang sudah ada ID)
             foreach ($validItems as $item) {
                 if (isset($item['id'])) {
-                    continue; // Skip item yang sudah tersimpan sebelumnya
+                    continue;
                 }
 
                 SparepartList::create([
@@ -440,7 +424,6 @@ class AssignedSpk extends Component
             if ($approval) {
                 $this->activityLists = ActivityList::where('approval_id', $approval->id)->get()->toArray();
 
-                // ✅ Initialize temp states from database
                 $this->tempActivityStates = [];
                 foreach ($this->activityLists as $task) {
                     $this->tempActivityStates[$task['id']] = $task['is_done'];
@@ -456,21 +439,21 @@ class AssignedSpk extends Component
         }
 
         $approval = MaintenanceApproval::where('wo_id', $this->selectedWorkOrderId)->first();
-        if (! $approval) {
-            session()->flash('error', 'Maintenance approval not found.');
 
-            return;
+        if ($approval) {
+            $newTask = ActivityList::create([
+                'approval_id' => $approval->id,
+                'task' => trim($this->newTask),
+                'is_done' => false,
+                'planner_group_id' => $this->selectedWorkOrder->planner_group_id,
+            ]);
+
+            $this->activityLists[] = $newTask->toArray();
+
+            $this->tempActivityStates[$newTask->id] = false;
+
+            $this->newTask = '';
         }
-
-        ActivityList::create([
-            'approval_id' => $approval->id,
-            'task' => trim($this->newTask),
-            'is_done' => false,
-            'planner_group_id' => $this->selectedWorkOrder->planner_group_id,
-        ]);
-
-        $this->newTask = '';
-        $this->loadActivityLists();
     }
 
     public function editTask($taskId)
@@ -493,7 +476,6 @@ class AssignedSpk extends Component
             $task->update(['task' => trim($this->editingTaskName)]);
             $this->editingTaskId = null;
             $this->editingTaskName = '';
-            $this->loadActivityLists();
         }
     }
 
@@ -506,7 +488,14 @@ class AssignedSpk extends Component
     public function deleteTask($taskId)
     {
         ActivityList::destroy($taskId);
-        $this->loadActivityLists();
+
+        $this->activityLists = array_filter($this->activityLists, function ($task) use ($taskId) {
+            return $task['id'] != $taskId;
+        });
+
+        $this->activityLists = array_values($this->activityLists);
+
+        unset($this->tempActivityStates[$taskId]);
     }
 
     public function calculateProgress()
@@ -515,7 +504,6 @@ class AssignedSpk extends Component
             return 0.0;
         }
 
-        // ✅ Hitung dari temp states, bukan dari database
         $completedCount = 0;
         foreach ($this->activityLists as $task) {
             if (isset($this->tempActivityStates[$task['id']]) && $this->tempActivityStates[$task['id']]) {
@@ -531,7 +519,6 @@ class AssignedSpk extends Component
         try {
             DB::beginTransaction();
 
-            // ✅ Save semua perubahan ke database
             foreach ($this->tempActivityStates as $taskId => $isDone) {
                 $task = ActivityList::find($taskId);
                 if ($task) {
@@ -539,7 +526,6 @@ class AssignedSpk extends Component
                 }
             }
 
-            // Update progress di approval
             $approval = MaintenanceApproval::where('wo_id', $this->selectedWorkOrderId)->first();
             if ($approval) {
                 $progress = $this->calculateProgress();
@@ -548,7 +534,6 @@ class AssignedSpk extends Component
 
             DB::commit();
 
-            // ✅ Reload activity lists untuk sync dengan database
             $this->loadActivityLists();
 
             $this->dispatch('closeAllModals');
@@ -571,7 +556,6 @@ class AssignedSpk extends Component
         $this->editingTaskId = null;
         $this->editingTaskName = '';
 
-        // ✅ TAMBAHKAN - Reset temp states ke data database
         if (! empty($this->activityLists)) {
             $this->tempActivityStates = [];
             foreach ($this->activityLists as $task) {
@@ -631,7 +615,6 @@ class AssignedSpk extends Component
                 ];
             }
         } else {
-            // Reset to default empty state
             $this->sparepartItems = [['requested_sparepart' => '', 'quantity' => '', 'is_completed' => false]];
         }
     }
@@ -674,7 +657,7 @@ class AssignedSpk extends Component
         $this->newTask = '';
         $this->editingTaskId = null;
         $this->editingTaskName = '';
-        $this->tempActivityStates = []; // ✅ TAMBAHKAN - Reset temp states
+        $this->tempActivityStates = [];
     }
 
     // ==================== PM ACTIVITY LIST ====================
@@ -684,7 +667,6 @@ class AssignedSpk extends Component
         if ($this->selectedPmId) {
             $this->activityLists = ActivityList::where('pm_id', $this->selectedPmId)->get()->toArray();
 
-            // ✅ Initialize temp states from database
             $this->tempActivityStates = [];
             foreach ($this->activityLists as $task) {
                 $this->tempActivityStates[$task['id']] = $task['is_done'];
@@ -698,14 +680,17 @@ class AssignedSpk extends Component
             return;
         }
 
-        ActivityList::create([
+        $newTask = ActivityList::create([
             'pm_id' => $this->selectedPmId,
             'task' => trim($this->newTask),
             'is_done' => false,
         ]);
 
+        $this->activityLists[] = $newTask->toArray();
+
+        $this->tempActivityStates[$newTask->id] = false;
+
         $this->newTask = '';
-        $this->loadActivityListsForPm();
     }
 
     public function editTaskPm($taskId)
@@ -728,7 +713,6 @@ class AssignedSpk extends Component
             $task->update(['task' => trim($this->editingTaskName)]);
             $this->editingTaskId = null;
             $this->editingTaskName = '';
-            $this->loadActivityListsForPm();
         }
     }
 
@@ -741,7 +725,14 @@ class AssignedSpk extends Component
     public function deleteTaskPm($taskId)
     {
         ActivityList::destroy($taskId);
-        $this->loadActivityListsForPm();
+
+        $this->activityLists = array_filter($this->activityLists, function ($task) use ($taskId) {
+            return $task['id'] != $taskId;
+        });
+
+        $this->activityLists = array_values($this->activityLists);
+
+        unset($this->tempActivityStates[$taskId]);
     }
 
     public function calculateProgressPm()
@@ -750,7 +741,6 @@ class AssignedSpk extends Component
             return 0.0;
         }
 
-        // ✅ Hitung dari temp states, bukan dari database
         $completedCount = 0;
         foreach ($this->activityLists as $task) {
             if (isset($this->tempActivityStates[$task['id']]) && $this->tempActivityStates[$task['id']]) {
@@ -766,7 +756,6 @@ class AssignedSpk extends Component
         try {
             DB::beginTransaction();
 
-            // ✅ Save semua perubahan ke database
             foreach ($this->tempActivityStates as $taskId => $isDone) {
                 $task = ActivityList::find($taskId);
                 if ($task) {
@@ -776,7 +765,6 @@ class AssignedSpk extends Component
 
             DB::commit();
 
-            // ✅ Reload activity lists untuk sync dengan database
             $this->loadActivityListsForPm();
 
             $this->dispatch('closeAllModals');
@@ -799,7 +787,6 @@ class AssignedSpk extends Component
         $this->editingTaskId = null;
         $this->editingTaskName = '';
 
-        // ✅ Reset temp states ke data database
         if (! empty($this->activityLists)) {
             $this->tempActivityStates = [];
             foreach ($this->activityLists as $task) {
@@ -890,14 +877,12 @@ class AssignedSpk extends Component
 
     public function confirmStartPm()
     {
-        // Validasi user harus di-assign ke team PM
         if (! $this->isUserAssignedToPm($this->selectedPmId)) {
             session()->flash('error', 'You are not assigned to this PM team.');
 
             return;
         }
 
-        // Validasi user tidak boleh punya active session di WO atau PM manapun
         $activeSession = ActualManhour::where('user_id', Auth::user()->id)
             ->whereNull('stop_job')
             ->first();
@@ -922,14 +907,12 @@ class AssignedSpk extends Component
         try {
             DB::beginTransaction();
 
-            // Insert manhour
             ActualManhour::create([
                 'user_id' => Auth::user()->id,
                 'pm_id' => $this->selectedPmId,
                 'start_job' => now(),
             ]);
 
-            // Update PM status ke ON PROGRESS (jika masih ASSIGNED)
             $pm = \App\Models\PreventiveMaintenance::find($this->selectedPmId);
             if ($pm && $pm->user_status === 'ASSIGNED') {
                 $pm->update(['user_status' => 'ON PROGRESS']);
@@ -1006,7 +989,6 @@ class AssignedSpk extends Component
 
     public function confirmClosePm()
     {
-        // Validasi progress harus 100%
         if ($this->calculateProgressPm() != 100) {
             $this->dispatch('unfinished');
 
@@ -1027,12 +1009,10 @@ class AssignedSpk extends Component
                 throw new \Exception('PM not found.');
             }
 
-            // Validasi progress 100%
             if ($this->calculateProgressPm() != 100) {
                 throw new \Exception('All tasks must be completed before closing.');
             }
 
-            // Update status ke REQUESTED TO BE CLOSED
             $pm->update(['user_status' => 'REQUESTED TO BE CLOSED']);
 
             $this->selectedPm = $pm;
@@ -1115,8 +1095,6 @@ class AssignedSpk extends Component
             if (! $workOrder) {
                 throw new \Exception('Work Order not found.');
             }
-
-            // ✅ TAMBAHKAN - Auto stop semua active manhour sessions untuk WO ini
             $activeManhours = ActualManhour::where('wo_id', $this->selectedWorkOrderId)
                 ->whereNull('stop_job')
                 ->get();
@@ -1128,18 +1106,12 @@ class AssignedSpk extends Component
                 ]);
                 $stoppedCount++;
             }
-
-            // Log berapa session yang di-stop
             if ($stoppedCount > 0) {
                 \Log::info("Auto-stopped {$stoppedCount} active manhour sessions for WO {$this->selectedWorkOrderId} (Request to Close)");
             }
-
-            // Update WO status
             $workOrder->update([
                 'status' => 'Requested to be closed',
             ]);
-
-            // Update approval status (jika ada)
             if ($approval) {
                 $approval->update([
                     'status' => 'Requested to be closed',
@@ -1147,8 +1119,6 @@ class AssignedSpk extends Component
             }
 
             DB::commit();
-
-            // Send email notification
             $spv = User::where('dept_id', 1)
                 ->where('role_id', 3)
                 ->where('planner_group_id', $this->selectedWorkOrder->planner_group_id)
@@ -1169,7 +1139,6 @@ class AssignedSpk extends Component
             $this->reason = '';
             $this->dispatch('closeAllModals');
 
-            // ✅ Flash message dengan info auto-stop
             if ($stoppedCount > 0) {
                 session()->flash('message', "Work Order's close request successfully submitted. {$stoppedCount} active work session(s) automatically stopped.");
             } else {

@@ -105,27 +105,6 @@ class MonitoringSpk extends Component
         $this->isSearching = false;
     }
 
-    // public function focusSparepart($index)
-    // {
-    //     // Only show initial results if input is empty
-    //     if (empty($this->sparepartSearch[$index])) {
-    //         $this->showInitialSpareparts($index);
-    //     }
-    // }
-
-    // public function showInitialSpareparts($index)
-    // {
-    //     // Get already selected sparepart IDs to exclude
-    //     $selectedIds = array_filter(array_column($this->sparepartItems, 'sparepart_id'));
-
-    //     $results = Sparepart::whereNotIn('id', $selectedIds)
-    //         ->limit(5)
-    //         ->get(['id', 'code', 'name', 'uom']);
-
-    //     $this->sparepartResults[$index] = $results->toArray();
-    //     // Don't set isSearching to true here
-    // }
-
     public function selectSparepart($index, $sparepartId)
     {
         $sparepart = Sparepart::find($sparepartId);

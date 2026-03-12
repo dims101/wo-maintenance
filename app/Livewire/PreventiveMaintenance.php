@@ -554,14 +554,6 @@ class PreventiveMaintenance extends Component
             session()->flash('error', $e->getMessage());
         }
     }
-    // ==================== HELPER METHODS ====================
-
-    // public function canReschedule()
-    // {
-    //     return $this->selectedPm &&
-    //            $this->selectedPm->actual_start_date === null &&
-    //            ! $this->isCompleted();
-    // }
 
     // ==================== HELPER METHODS ====================
 

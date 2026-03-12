@@ -4,7 +4,6 @@ namespace App\Livewire;
 
 use App\Mail\SendGeneralMail;
 use App\Models\ActualManhour;
-use App\Models\Department;
 use App\Models\MaintenanceApproval;
 use App\Models\Mat;
 use App\Models\Order;
@@ -43,7 +42,6 @@ class ApprovalSpvUser extends Component
 
     public $popupModalTitle = '';
 
-    // Maintenance Approval Properties
     public $selectedOrderType = '';
 
     public $selectedMat = '';
@@ -67,13 +65,11 @@ class ApprovalSpvUser extends Component
     public $users = [];
 
     public $isPgComplete;
-    // public $users;
 
     protected $paginationTheme = 'bootstrap';
 
     public function mount()
     {
-        // $this->loadDropdownData();
         $this->teamMembers = [''];
     }
 
@@ -83,7 +79,6 @@ class ApprovalSpvUser extends Component
 
         $hour = (int) $now->format('H');
 
-        // Jika jam 00:00 - 06:59 → masih dianggap tanggal kemarin
         if ($hour < 7) {
             return $now->copy()->subDay()->toDateString();
         }
@@ -91,37 +86,11 @@ class ApprovalSpvUser extends Component
         return $now->toDateString();
     }
 
-    // public function loadDropdownData()
-    // {
-    //     $this->orderTypes = Order::all();
-    //     $this->mats = Mat::all();
-    //     $workDate = $this->getWorkDate();
-
-    //     $this->users = User::where('role_id', 5)
-    //         ->where('planner_group_id', Auth::user()->planner_group_id)
-    //         ->where('status', 'Active')
-    //         ->whereRaw('
-    //     COALESCE(
-    //         (
-    //             SELECT SUM(actual_time)
-    //             FROM actual_manhours
-    //             WHERE actual_manhours.user_id = users.id
-    //             AND date = ?
-    //             AND actual_manhours.deleted_at IS NULL
-    //         ),
-    //     0) < 420
-    // ', [$workDate])
-    //         ->get(['id', 'name']);
-
-    // }
-
     public function loadDropdownData()
     {
-        // Load order types dan mats (existing)
         $this->orderTypes = Order::all();
         $this->mats = Mat::all();
 
-        // Load users dengan hours left calculation
         if ($this->selectedWorkOrder) {
             $plannerGroupId = $this->selectedWorkOrder->planner_group_id;
 
@@ -147,28 +116,22 @@ class ApprovalSpvUser extends Component
                     return $user['is_available'];
                 })
                 ->values();
-            // ->toArray();
         } else {
-            // Fallback jika selectedWorkOrder belum ada
             $this->users = User::select('id', 'name', 'role_id')
                 ->where('dept_id', 1)
                 ->whereIn('role_id', [4, 5])
                 ->whereIn('status', ['active', 'Active', 'ACTIVE'])
                 ->get();
-            // ->toArray();
         }
     }
 
     private function calculateUserHoursLeft($userId)
     {
         $maxHoursPerWeek = 35;
-
-        // Get current week number dan year
         $today = \Carbon\Carbon::now('Asia/Jakarta');
         $currentWeek = $today->week();
         $currentYear = $today->year;
 
-        // Sum duration dari team_assignments untuk user ini di minggu ini
         $totalHours = TeamAssignment::where('user_id', $userId)
             ->where('week_number', $currentWeek)
             ->where('year', $currentYear)
@@ -200,7 +163,6 @@ class ApprovalSpvUser extends Component
             return;
         }
 
-        // Validate PIC
         if ($this->selectedPic) {
             $hoursLeft = $this->calculateUserHoursLeft($this->selectedPic);
             if ($this->duration > $hoursLeft) {
@@ -214,7 +176,6 @@ class ApprovalSpvUser extends Component
             }
         }
 
-        // Validate Team Members
         foreach ($this->teamMembers as $memberId) {
             if (! empty($memberId) && $memberId != $this->selectedPic) {
                 $hoursLeft = $this->calculateUserHoursLeft($memberId);
@@ -245,19 +206,16 @@ class ApprovalSpvUser extends Component
 
     public function updatedSelectedPic($value)
     {
-        // Hilangkan PIC dari semua slot teamMembers
         foreach ($this->teamMembers as $i => $member) {
             if ($member === $value) {
-                $this->teamMembers[$i] = ''; // kosongkan slot
+                $this->teamMembers[$i] = '';
             }
         }
 
-        // Normalisasi: kalau semua slot kosong, biarkan minimal 1 slot kosong
         if (count(array_filter($this->teamMembers)) === 0) {
             $this->teamMembers = [''];
         }
 
-        // Pastikan tidak ada duplikat antar team members
         $this->teamMembers = array_values(array_unique($this->teamMembers, SORT_REGULAR));
     }
 
@@ -270,7 +228,6 @@ class ApprovalSpvUser extends Component
 
     public function removeTeamMember($index)
     {
-        // Index 0 tidak bisa dihapus, hanya index > 0 yang bisa dihapus
         if ($index > 0 && count($this->teamMembers) > 1) {
             unset($this->teamMembers[$index]);
             $this->teamMembers = array_values($this->teamMembers);
@@ -279,7 +236,6 @@ class ApprovalSpvUser extends Component
 
     public function openTeamCreate()
     {
-        // Open new tab for team creation
         $this->dispatch('openNewTab', '/team/create');
     }
 
@@ -298,17 +254,13 @@ class ApprovalSpvUser extends Component
         $this->selectedWorkOrderId = $workOrderId;
         $this->selectedWorkOrder = WorkOrder::with(['equipment.functionalLocation.resource.plant', 'department', 'user', 'plannerGroup', 'maintenanceApproval'])
             ->find($workOrderId);
-        // dd($this->selectedWorkOrder->maintenanceApproval->start->format('Y-m-d\TH:i'));
         $maintenanceApproval = $this->selectedWorkOrder->maintenanceApproval;
-        // $this->isPgComplete = $maintenanceApproval?->id ? WoPlannerGroup::where('approval_id', $maintenanceApproval->id)->count() == 2 : false;
         $this->loadDropdownData();
         $this->isPgComplete = $maintenanceApproval?->start ? true : false;
-        // dd($this->isPgComplete);
         $this->selectedOrderType = $maintenanceApproval->mat->order_type_id ?? null;
         $this->selectedMat = $maintenanceApproval->mat_id ?? null;
         $this->startDateTime = $maintenanceApproval?->start?->format('Y-m-d') ?? null;
         $this->finishDateTime = $maintenanceApproval?->finish?->format('Y-m-d') ?? null;
-        // dd($this->selectedOrderType);
         $this->dispatch('showDetailModal');
     }
 
@@ -396,7 +348,6 @@ class ApprovalSpvUser extends Component
             return;
         }
 
-        // $spv = $this->getSpvDetail(Department::find(1)->spv_id);
         $spv = User::where('dept_id', 1)
             ->where('role_id', 3)
             ->where('planner_group_id', $this->selectedWorkOrder->planner_group_id)
@@ -430,123 +381,6 @@ class ApprovalSpvUser extends Component
         }
     }
 
-    // public function approveMaintenance()
-    // {
-    //     // Validation
-    //     $errors = [];
-
-    //     if (! $this->selectedOrderType) {
-    //         $errors[] = 'Order Type is required.';
-    //     }
-
-    //     if (! $this->selectedMat) {
-    //         $errors[] = 'Maintenance Activity Type is required.';
-    //     }
-
-    //     if (! $this->selectedPic) {
-    //         $errors[] = 'PIC is required.';
-    //     }
-
-    //     if (! $this->startDateTime) {
-    //         $errors[] = 'Start Date Time is required.';
-    //     }
-
-    //     if (! $this->finishDateTime) {
-    //         $errors[] = 'Finish Date Time is required.';
-    //     }
-
-    //     // Filter out empty team members and validate
-    //     $validTeamMembers = array_filter($this->teamMembers, function ($member) {
-    //         return ! empty($member);
-    //     });
-
-    //     if (empty($validTeamMembers)) {
-    //         $errors[] = 'At least one team member is required.';
-    //     }
-
-    //     // Check if PIC is in team members
-    //     if ($this->selectedPic && in_array($this->selectedPic, $validTeamMembers)) {
-    //         $errors[] = 'PIC cannot be a team member.';
-    //     }
-
-    //     if (! empty($errors)) {
-    //         session()->flash('error', implode(' ', $errors));
-
-    //         return;
-    //     }
-
-    //     try {
-    //         DB::beginTransaction();
-
-    //         // Create or update maintenance approval
-    //         $maintenanceApproval = MaintenanceApproval::updateOrCreate(
-    //             ['wo_id' => $this->selectedWorkOrderId],
-    //             [
-    //                 'mat_id' => $this->selectedMat,
-    //                 'start' => $this->startDateTime,
-    //                 'finish' => $this->finishDateTime,
-    //                 'is_received' => true,
-    //                 'is_rejected' => false,
-    //                 'reject_reason' => null,
-    //             ]
-    //         );
-
-    //         // Clear existing team assignments for this approval
-    //         // TeamAssignment::where('approval_id', $maintenanceApproval->id)->delete();
-
-    //         // Create team assignment for PIC
-    //         TeamAssignment::create([
-    //             'approval_id' => $maintenanceApproval->id,
-    //             'user_id' => $this->selectedPic,
-    //             'is_pic' => true,
-    //             'is_active' => true,
-    //         ]);
-
-    //         // Create team assignments for team members
-    //         foreach ($validTeamMembers as $memberId) {
-    //             TeamAssignment::create([
-    //                 'approval_id' => $maintenanceApproval->id,
-    //                 'user_id' => $memberId,
-    //                 'is_pic' => false,
-    //                 'is_active' => true,
-    //             ]);
-    //         }
-
-    //         // Update work order status
-    //         $this->selectedWorkOrder->update([
-    //             'status' => 'Planned',
-    //         ]);
-    //         DB::commit();
-
-    //         WoPlannerGroup::create([
-    //             'approval_id' => $this->selectedWorkOrder->maintenanceApproval->id,
-    //             'planner_group_id' => $this->selectedWorkOrder->planner_group_id,
-    //             'status' => 'Active',
-    //         ]);
-
-    //         // Send email to SPV
-    //         $spv = $this->getSpvDetail($this->selectedWorkOrder->department->spv_id);
-    //         if ($spv && $spv->email) {
-    //             Mail::to($spv->email)->send(
-    //                 new SendGeneralMail(
-    //                     sapaan: 'Dear',
-    //                     nama: $spv->name,
-    //                     isi: 'SPK Maintenance telah diapprove dan dijadwalkan. Klik tombol di bawah untuk melihat detail.',
-    //                     link: route('work-order.spv-approval'),
-    //                     penutup: '[This message is generated by system]'
-    //                 )
-    //             );
-    //         }
-
-    //         $this->resetMaintenanceApprovalForm();
-    //         $this->dispatch('closeAllModals');
-    //         session()->flash('message', 'Maintenance approved and team assigned successfully.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         session()->flash('error', 'An error occurred while processing the approval.');
-    //     }
-    // }
-
     public function approveMaintenance()
     {
         try {
@@ -576,12 +410,10 @@ class ApprovalSpvUser extends Component
                 throw new \Exception('Please select at least one team member.');
             }
 
-            // Calculate week number dari start_date
             $startDate = \Carbon\Carbon::parse($this->startDateTime, 'Asia/Jakarta');
             $weekNumber = $startDate->week();
             $year = $startDate->year;
 
-            // Validate ALL users (PIC + team members) hours
             $allUserIds = array_merge([$this->selectedPic], $validTeamMembers);
             $allUserIds = array_unique($allUserIds);
 
@@ -611,7 +443,6 @@ class ApprovalSpvUser extends Component
 
             // ===== INSERT TEAM ASSIGNMENTS =====
 
-            // Assign PIC
             TeamAssignment::create([
                 'approval_id' => $approval->id,
                 'user_id' => $this->selectedPic,
@@ -632,7 +463,6 @@ class ApprovalSpvUser extends Component
             $approval->update([
                 'start' => $startDate,
             ]);
-            // Assign Team Members
             foreach ($validTeamMembers as $memberId) {
                 if ($memberId != $this->selectedPic) {
                     TeamAssignment::create([
@@ -815,14 +645,12 @@ class ApprovalSpvUser extends Component
 
             $approvalId = $this->selectedWorkOrder->maintenanceApproval->id;
 
-            // 🔥 Step 1: Nonaktifkan semua assignment lama
             TeamAssignment::where('approval_id', $approvalId)
                 ->update([
                     'is_active' => false,
                     'is_pic' => false,
                 ]);
 
-            // 🔥 Step 2: Aktifkan PIC baru (WAJIB)
             if (! empty($this->selectedPic)) {
                 TeamAssignment::updateOrCreate(
                     [
@@ -836,7 +664,6 @@ class ApprovalSpvUser extends Component
                 );
             }
 
-            // 🔥 Step 3: Aktifkan team member baru (kalau ada)
             foreach ($validTeamMembers as $memberId) {
                 TeamAssignment::updateOrCreate(
                     [
@@ -853,19 +680,14 @@ class ApprovalSpvUser extends Component
         } catch (\Exception $e) {
             session()->flash('error', 'An error occurred while processing the approval.');
         }
-
-        // dd('test');
         $approvalId = $this->selectedWorkOrder->maintenanceApproval->id;
         $currentPgId = $this->selectedWorkOrder->planner_group_id;
         $targetPgId = $currentPgId == 1 ? 2 : 1;
-        // Ambil semua planner_group_id yang ada di sistem (hanya 2)
         $allPgIds = PlannerGroup::pluck('id')->unique()->toArray();
 
-        // Planner group yang sudah terhubung dengan approval ini
         $existingPgIds = WoPlannerGroup::where('approval_id', $approvalId)
             ->pluck('planner_group_id')
             ->toArray();
-        // Jika baru ada satu planner group untuk approval ini, tambahkan yang satunya
         if (count($existingPgIds) === 1) {
             $newPgId = collect($allPgIds)->diff($existingPgIds)->first();
             WoPlannerGroup::create([
@@ -874,7 +696,6 @@ class ApprovalSpvUser extends Component
                 'status' => 'Active',
             ]);
         } elseif (count($existingPgIds) === 2) {
-            // Jika sudah ada dua, yang di-request jadi inactive, yang satunya jadi Requested to change
             WoPlannerGroup::where('approval_id', $approvalId)
                 ->where('planner_group_id', $targetPgId)
                 ->update(['status' => 'Active']);
@@ -883,7 +704,6 @@ class ApprovalSpvUser extends Component
         WorkOrder::where('id', $this->selectedWorkOrderId)
             ->update(['planner_group_id' => $targetPgId, 'status' => 'Planned']);
 
-        // $spv = $this->getSpvDetail($this->selectedWorkOrder->department->spv_id);
         $spv = User::where('dept_id', 1)
             ->where('role_id', 3)
             ->where('planner_group_id', $currentPgId)
@@ -964,11 +784,9 @@ class ApprovalSpvUser extends Component
                 throw new \Exception('No team assignments found.');
             }
 
-            // Ambil earliest start_date dan latest finish_date
             $startDate = $teamAssignments->min('start_date');
             $finishDate = $teamAssignments->max('finish_date');
 
-            // ✅ TAMBAHKAN - Auto stop semua active manhour sessions untuk WO ini
             $activeManhours = ActualManhour::where('wo_id', $approval->wo_id)
                 ->whereNull('stop_job')
                 ->get();
@@ -976,30 +794,25 @@ class ApprovalSpvUser extends Component
             foreach ($activeManhours as $manhour) {
                 $manhour->update([
                     'stop_job' => now(),
-                    // actual_time akan di-calculate otomatis oleh model mutator
                 ]);
             }
 
-            // Log berapa session yang di-stop
             if ($activeManhours->count() > 0) {
                 \Log::info("Auto-stopped {$activeManhours->count()} active manhour sessions for WO {$approval->wo_id}");
             }
 
-            // Update approval dengan aggregated dates
             $approval->update([
                 'start' => $startDate,
                 'finish' => $finishDate,
                 'is_closed' => true,
             ]);
 
-            // Update WO status
             $approval->workOrder->update([
                 'status' => 'Closed',
             ]);
 
             DB::commit();
 
-            // Send email notifications
             $spv = $this->getSpvDetail($this->selectedWorkOrder->department->spv_id);
             $admin = $this->getAdminDetail();
             $users = [$spv, $admin];
@@ -1020,7 +833,6 @@ class ApprovalSpvUser extends Component
 
             $this->dispatch('closeAllModals');
 
-            // ✅ Tambahkan info jika ada session yang di-stop otomatis
             if ($activeManhours->count() > 0) {
                 session()->flash('message', "Work order closed successfully. {$activeManhours->count()} active work session(s) automatically stopped.");
             } else {
@@ -1127,13 +939,11 @@ class ApprovalSpvUser extends Component
         if ($user->dept_id == 1) {
             $query->where(function ($q) use ($user) {
 
-                // 1️⃣ Waiting for Maintenance Approval sesuai planner group
                 $q->where(function ($sub) use ($user) {
                     $sub->where('planner_group_id', $user->planner_group_id)
                         ->where('status', 'Waiting for Maintenance Approval');
                 })
 
-                // 2️⃣ Requested to change planner group
                     ->orWhere(function ($sub) use ($user) {
                         $sub->where('status', 'Requested to change planner group')
                             ->where('planner_group_id', '!=', $user->planner_group_id);
